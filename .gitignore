@@ -1,0 +1,34 @@
+# Lesson videos and heavy media files
+*.mp4
+*.avi
+*.mkv
+*.mov
+
+# n8n backups containing credentials (crucial to prevent GitHub Push Protection blocking)
+workflow-backup-*.json
+workflow-*-backup.json
+n8n-backups/
+
+# n8n database, logs and keys
+.n8n/
+*.sqlite
+*.log
+.env
+.agents/
+
+# Python caching and environments
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+.env/
+
+# IDE and OS files
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+Desktop.ini
+.DS_Store

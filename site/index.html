@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>מבקר הקוד הכפול | Dual Code Auditor</title>
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#121820;
+    --panel-2:#161d27;
+    --border:#232c38;
+    --text:#e7edf3;
+    --muted:#8b98a8;
+    --red:#e5484d;
+    --blue:#3b82f6;
+    --accent:#22d3ee;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:"Segoe UI", Arial, sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%, #101823 0%, var(--bg) 60%);
+    color:var(--text);
+    min-height:100vh;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:48px 24px 96px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    background:linear-gradient(90deg, rgba(229,72,77,.15), rgba(59,130,246,.15));
+    border:1px solid var(--border);
+    padding:6px 14px;border-radius:999px;font-size:13px;color:var(--muted);
+  }
+  .dot{width:8px;height:8px;border-radius:50%}
+  .dot.red{background:var(--red)}
+  .dot.blue{background:var(--blue)}
+  h1{font-size:34px;margin:18px 0 6px;letter-spacing:-.5px}
+  .sub{color:var(--muted);font-size:16px;line-height:1.7;max-width:720px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:32px 0}
+  @media (max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;
+  }
+  .card h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+  .flow{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    background:var(--panel-2);border:1px solid var(--border);border-radius:14px;
+    padding:18px;margin:28px 0;font-size:13px;color:var(--muted)
+  }
+  .flow b{color:var(--text);font-weight:600}
+  .flow .arrow{color:var(--accent)}
+  section.gate{
+    margin-top:40px;background:var(--panel);border:1px solid var(--border);
+    border-radius:16px;padding:28px;text-align:center;
+  }
+  section.gate h2{margin:0 0 8px;font-size:20px}
+  section.gate p{color:var(--muted);font-size:14px;margin:0 0 20px}
+  .gate-form{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .gate-form input{
+    background:#0d1218;border:1px solid var(--border);color:var(--text);
+    padding:12px 14px;border-radius:10px;font-size:14px;width:220px;text-align:center;
+    letter-spacing:2px;
+  }
+  .gate-form button{
+    background:linear-gradient(90deg,var(--red),var(--blue));
+    border:none;color:#fff;padding:12px 22px;border-radius:10px;font-weight:600;cursor:pointer;
+  }
+  .gate-form button:hover{filter:brightness(1.1)}
+  .err{color:var(--red);font-size:13px;margin-top:10px;display:none}
+  .hint{color:var(--muted);font-size:12px;margin-top:14px}
+  #chat-container{display:none;margin-top:20px;height:560px;border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+  footer{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge"><span class="dot red"></span> Red Team <span class="dot blue"></span> Blue Team</span>
+  </header>
+
+  <h1>מבקר הקוד הכפול</h1>
+  <p class="sub">
+    מערכת Multi-Agent אוטונומית: סוכן <b>Red Team</b> מנתח קוד ומאתר חולשות אבטחה (כולל ניקוד CVSS 3.1 מלא),
+    וסוכן <b>Blue Team</b> משכתב אותו לגרסה מאובטחת — Self-Healing בזמן אמת, ללא התערבות אנושית.
+  </p>
+
+  <div class="flow">
+    <b>קוד</b> <span class="arrow">→</span> <b>Red Team Agent</b> <span class="arrow">→</span>
+    <b>ניתוח CVSS + PoC</b> <span class="arrow">→</span> <b>Blue Team Agent</b> <span class="arrow">→</span>
+    <b>קוד מתוקן</b>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🛡️ מודל Actor vs. Critic</h3>
+      <p>שני סוכני AI נפרדים במקום סוכן בודד — מפחית משמעותית התראות שווא (False Positives).</p>
+    </div>
+    <div class="card">
+      <h3>📊 ניקוד CVSS 3.1</h3>
+      <p>כל חולשה מקבלת Vector String מלא, ניתן להזנה במחשבון CVSS חיצוני לאימות אנושי.</p>
+    </div>
+  </div>
+
+  <section class="gate" id="gate">
+    <h2>נסה את המערכת</h2>
+    <p>הצ'אט מוגן בקוד גישה כדי למנוע שימוש לא מבוקר (המערכת רצה מול API בתשלום/מוגבל).</p>
+    <div class="gate-form">
+      <input id="passcode" type="password" placeholder="קוד גישה" autocomplete="off" />
+      <button id="unlock-btn">כניסה</button>
+    </div>
+    <div class="err" id="err">קוד גישה שגוי</div>
+    <p class="hint">קוד הגישה נמסר על ידי בעל האתר. זוהי הגנה בסיסית בלבד (לא אבטחה אמיתית) — מיועדת למניעת שימוש מקרי, לא מפני תוקף נחוש.</p>
+  </section>
+
+  <div id="chat-container"></div>
+
+  <footer>
+    Dual Code Auditor — פרויקט גמר, קורס מבוא לסייבר בניהול · מונע על ידי n8n + Groq (Llama 3.3 70B)
+  </footer>
+</div>
+
+<script>
+  // Client-side access gate. NOTE: this is a UX friction layer for a personal/demo
+  // deployment, not real security — the passcode lives in this file's source.
+  // Anyone who reads the page source can bypass it. Do not rely on this alone if
+  // this site is ever exposed beyond a trusted local/demo audience.
+  const PASSCODE = "cyber2026";
+
+  document.getElementById("unlock-btn").addEventListener("click", unlock);
+  document.getElementById("passcode").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlock();
+  });
+
+  function unlock() {
+    const val = document.getElementById("passcode").value.trim();
+    if (val === PASSCODE) {
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("chat-container").style.display = "block";
+      loadChat();
+    } else {
+      document.getElementById("err").style.display = "block";
+    }
+  }
+
+  function loadChat() {
+    import("https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js").then((mod) => {
+      mod.createChat({
+        webhookUrl: "http://localhost:5678/webhook/45ffb934-b0fa-45ca-9d5e-02db77995c77/chat",
+        target: "#chat-container",
+        mode: "fullscreen",
+        showWelcomeScreen: true,
+        initialMessages: [
+          "שלום! הדבק קטע קוד ואבדוק אותו כ-Red Team מול Blue Team ואחזיר ניתוח CVSS + תיקון."
+        ],
+        i18n: {
+          en: {
+            title: "מבקר הקוד הכפול",
+            subtitle: "הדבק קוד לבדיקת אבטחה",
+            inputPlaceholder: "הדבק כאן קטע קוד..."
+          }
+        }
+      });
+    });
+  }
+</script>
+</body>
+</html>
