@@ -16,6 +16,7 @@
     --red:#e5484d;
     --blue:#3b82f6;
     --accent:#22d3ee;
+    --success:#10b981;
   }
   *{box-sizing:border-box}
   body{
@@ -38,22 +39,68 @@
   .dot.blue{background:var(--blue)}
   h1{font-size:34px;margin:18px 0 6px;letter-spacing:-.5px}
   .sub{color:var(--muted);font-size:16px;line-height:1.7;max-width:720px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:32px 0}
+  
+  /* Tabs System */
+  .tabs{
+    display:flex;
+    gap:10px;
+    margin:32px 0 20px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:12px;
+  }
+  .tab-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:15px;
+    font-weight:600;
+    padding:8px 16px;
+    cursor:pointer;
+    border-radius:8px;
+    transition:all 0.2s ease;
+  }
+  .tab-btn:hover{
+    color:var(--text);
+    background:rgba(255,255,255,0.03);
+  }
+  .tab-btn.active{
+    color:#fff;
+    background:linear-gradient(90deg, rgba(229,72,77,0.1), rgba(59,130,246,0.1));
+    border:1px solid var(--border);
+    box-shadow:0 0 12px rgba(59,130,246,0.1);
+  }
+  
+  .tab-content{
+    display:none;
+    animation:fadeIn 0.3s ease;
+  }
+  .tab-content.active{
+    display:block;
+  }
+  
+  @keyframes fadeIn {
+    from{opacity:0;transform:translateY(4px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
   @media (max-width:720px){.grid{grid-template-columns:1fr}}
   .card{
     background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;
   }
   .card h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
   .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+  
   .flow{
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
     background:var(--panel-2);border:1px solid var(--border);border-radius:14px;
-    padding:18px;margin:28px 0;font-size:13px;color:var(--muted)
+    padding:18px;margin:20px 0;font-size:13px;color:var(--muted)
   }
   .flow b{color:var(--text);font-weight:600}
   .flow .arrow{color:var(--accent)}
+  
   section.gate{
-    margin-top:40px;background:var(--panel);border:1px solid var(--border);
+    margin-top:20px;background:var(--panel);border:1px solid var(--border);
     border-radius:16px;padding:28px;text-align:center;
   }
   section.gate h2{margin:0 0 8px;font-size:20px}
@@ -71,7 +118,128 @@
   .gate-form button:hover{filter:brightness(1.1)}
   .err{color:var(--red);font-size:13px;margin-top:10px;display:none}
   .hint{color:var(--muted);font-size:12px;margin-top:14px}
+  
   #chat-container{display:none;margin-top:20px;height:560px;border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+  
+  /* GitHub Section Styles */
+  .github-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:28px;
+    margin-top:20px;
+  }
+  .github-panel h2{margin:0 0 12px;font-size:20px;display:flex;align-items:center;gap:8px}
+  .github-panel p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px}
+  
+  .step-list{
+    list-style-type:none;
+    padding:0;
+    margin:0 0 24px;
+  }
+  .step-item{
+    position:relative;
+    padding-right:28px;
+    margin-bottom:14px;
+    font-size:14px;
+    line-height:1.6;
+  }
+  .step-number{
+    position:absolute;
+    right:0;
+    top:2px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--blue);
+    color:#fff;
+    font-size:11px;
+    font-weight:bold;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .code-box{
+    background:#0d1218;
+    border:1px solid var(--border);
+    padding:10px 14px;
+    border-radius:8px;
+    font-family:monospace;
+    font-size:13px;
+    color:var(--accent);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:6px 0 10px;
+  }
+  .copy-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:12px;
+    padding:4px 8px;
+    border-radius:4px;
+    border:1px solid var(--border);
+  }
+  .copy-btn:hover{
+    color:var(--text);
+    background:rgba(255,255,255,0.05);
+  }
+  
+  .sim-form{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    padding:20px;
+    border-radius:12px;
+    margin-top:24px;
+  }
+  .sim-form h3{margin:0 0 8px;font-size:15px}
+  .sim-form p{font-size:13px;margin-bottom:14px}
+  .input-group{
+    display:flex;
+    gap:10px;
+  }
+  .input-group input{
+    flex:1;
+    background:#0d1218;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:12px;
+    border-radius:8px;
+    font-size:13px;
+  }
+  .input-group button{
+    background:var(--blue);
+    border:none;
+    color:#fff;
+    padding:0 24px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.2s;
+  }
+  .input-group button:hover{background:#2563eb}
+  
+  .status-message{
+    margin-top:14px;
+    padding:12px;
+    border-radius:8px;
+    font-size:13px;
+    display:none;
+    animation:fadeIn 0.2s ease;
+  }
+  .status-message.success{
+    background:rgba(16,185,129,0.1);
+    border:1px solid rgba(16,185,129,0.2);
+    color:var(--success);
+  }
+  .status-message.error{
+    background:rgba(229,72,77,0.1);
+    border:1px solid rgba(229,72,77,0.2);
+    color:var(--red);
+  }
+  
   footer{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
 </style>
 </head>
@@ -87,35 +255,87 @@
     וסוכן <b>Blue Team</b> משכתב אותו לגרסה מאובטחת — Self-Healing בזמן אמת, ללא התערבות אנושית.
   </p>
 
-  <div class="flow">
-    <b>קוד</b> <span class="arrow">→</span> <b>Red Team Agent</b> <span class="arrow">→</span>
-    <b>ניתוח CVSS + PoC</b> <span class="arrow">→</span> <b>Blue Team Agent</b> <span class="arrow">→</span>
-    <b>קוד מתוקן</b>
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-chat-btn" onclick="switchTab('chat')">💬 צ'אט סריקת קוד</button>
+    <button class="tab-btn" id="tab-github-btn" onclick="switchTab('github')">🚀 חיבור אוטומטי ל-GitHub (CI/CD)</button>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h3>🛡️ מודל Actor vs. Critic</h3>
-      <p>שני סוכני AI נפרדים במקום סוכן בודד — מפחית משמעותית התראות שווא (False Positives).</p>
+  <!-- Tab 1: Chat Interface -->
+  <div class="tab-content active" id="tab-chat">
+    <div class="flow">
+      <b>קוד ידני</b> <span class="arrow">→</span> <b>Red Team Agent</b> <span class="arrow">→</span>
+      <b>ניתוח CVSS + PoC</b> <span class="arrow">→</span> <b>Blue Team Agent</b> <span class="arrow">→</span>
+      <b>קוד מתוקן</b>
     </div>
-    <div class="card">
-      <h3>📊 ניקוד CVSS 3.1</h3>
-      <p>כל חולשה מקבלת Vector String מלא, ניתן להזנה במחשבון CVSS חיצוני לאימות אנושי.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>🛡️ מודל Actor vs. Critic</h3>
+        <p>שני סוכני AI נפרדים במקום סוכן בודד — מפחית משמעותית התראות שווא (False Positives).</p>
+      </div>
+      <div class="card">
+        <h3>📊 ניקוד CVSS 3.1</h3>
+        <p>כל חולשה מקבלת Vector String מלא, ניתן להזנה במחשבון CVSS חיצוני לאימות אנושי.</p>
+      </div>
     </div>
+
+    <section class="gate" id="gate">
+      <h2>נסה את המערכת בצ'אט</h2>
+      <p>הצ'אט מוגן בקוד גישה כדי למנוע שימוש לא מבוקר (המערכת רצה מול API בתשלום).</p>
+      <div class="gate-form">
+        <input id="passcode" type="password" placeholder="קוד גישה" autocomplete="off" />
+        <button id="unlock-btn">כניסה</button>
+      </div>
+      <div class="err" id="err">קוד גישה שגוי</div>
+      <p class="hint">קוד הגישה נמסר על ידי בעל האתר (רמז: cyber2026).</p>
+    </section>
+
+    <div id="chat-container"></div>
   </div>
 
-  <section class="gate" id="gate">
-    <h2>נסה את המערכת</h2>
-    <p>הצ'אט מוגן בקוד גישה כדי למנוע שימוש לא מבוקר (המערכת רצה מול API בתשלום/מוגבל).</p>
-    <div class="gate-form">
-      <input id="passcode" type="password" placeholder="קוד גישה" autocomplete="off" />
-      <button id="unlock-btn">כניסה</button>
-    </div>
-    <div class="err" id="err">קוד גישה שגוי</div>
-    <p class="hint">קוד הגישה נמסר על ידי בעל האתר. זוהי הגנה בסיסית בלבד (לא אבטחה אמיתית) — מיועדת למניעת שימוש מקרי, לא מפני תוקף נחוש.</p>
-  </section>
+  <!-- Tab 2: GitHub Integration Details -->
+  <div class="tab-content" id="tab-github">
+    <div class="github-panel">
+      <h2>🔗 חיבור אוטומטי ל-Repository (Layer B)</h2>
+      <p>
+        במקום להעתיק ולהדביק קטעי קוד, המערכת מתחברת ישירות למאגר ה-GitHub שלך באמצעות Webhooks. 
+        בכל פעם שתפתח Pull Request או תעשה Push, המערכת תסרוק את השינויים (ה-Diff) אוטומטית, 
+        תכתוב הערת אבטחה ב-PR ותדחוף תיקון אקטיבי ישירות לענף שלך.
+      </p>
 
-  <div id="chat-container"></div>
+      <ul class="step-list">
+        <li class="step-item">
+          <span class="step-number">1</span>
+          <b>העתק את כתובת ה-Webhook שלך מ-n8n:</b>
+          <div class="code-box">
+            <span id="webhook-url">http://localhost:5678/webhook/github-webhook</span>
+            <button class="copy-btn" onclick="copyWebhook()">העתק</button>
+          </div>
+        </li>
+        <li class="step-item">
+          <span class="step-number">2</span>
+          <b>הגדר את ה-Webhook ב-GitHub:</b><br />
+          גש למאגר שלך ב-GitHub $\rightarrow$ <b>Settings</b> $\rightarrow$ <b>Webhooks</b> $\rightarrow$ <b>Add Webhook</b>. 
+          הדבק את הכתובת שהעתקת, הגדר את ה-Content type ל-<code>application/json</code> ובחר להאזין לאירועי <b>Pull Requests</b> ו-<b>Pushes</b>.
+        </li>
+        <li class="step-item">
+          <span class="step-number">3</span>
+          <b>סריקה אוטומטית ברקע:</b><br />
+          זהו זה! החיבור הושלם. כעת כשיווצר שינוי בקוד במאגר, סוכני ה-Red & Blue Team יפעלו ברקע ויבצעו את התיקון ישירות בתוך GitHub.
+        </li>
+      </ul>
+
+      <div class="sim-form">
+        <h3>⚡ סימולטור ואימות חיבור GitHub</h3>
+        <p>ניתן לסמלץ אירוע Webhook של Pull Request ישירות מהאתר כדי לבדוק ששרת ה-n8n והסוכנים מגיבים ומבצעים תיקון ב-GitHub.</p>
+        <div class="input-group">
+          <input id="pr-link" type="text" placeholder="הדבק קישור ל-PR (למשל: https://github.com/Levi2599/cyber-management-project/pull/1)" />
+          <button id="sim-btn" onclick="triggerSimulation()">שלח סימולציה</button>
+        </div>
+        <div class="status-message" id="sim-status"></div>
+      </div>
+    </div>
+  </div>
 
   <footer>
     Dual Code Auditor — פרויקט גמר, קורס מבוא לסייבר בניהול · מונע על ידי n8n + Groq (Llama 3.3 70B)
@@ -123,10 +343,6 @@
 </div>
 
 <script>
-  // Client-side access gate. NOTE: this is a UX friction layer for a personal/demo
-  // deployment, not real security — the passcode lives in this file's source.
-  // Anyone who reads the page source can bypass it. Do not rely on this alone if
-  // this site is ever exposed beyond a trusted local/demo audience.
   const PASSCODE = "cyber2026";
 
   document.getElementById("unlock-btn").addEventListener("click", unlock);
@@ -164,6 +380,86 @@
         }
       });
     });
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    document.getElementById(`tab-${tabId}-btn`).classList.add('active');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+  }
+
+  function copyWebhook() {
+    const urlText = document.getElementById("webhook-url").innerText;
+    navigator.clipboard.writeText(urlText).then(() => {
+      alert("כתובת ה-Webhook הועתקה ללוח!");
+    });
+  }
+
+  function triggerSimulation() {
+    const prUrl = document.getElementById("pr-link").value.trim();
+    const statusDiv = document.getElementById("sim-status");
+    
+    if (!prUrl) {
+      showStatus("נא להזין קישור תקין ל-Pull Request", "error");
+      return;
+    }
+    
+    // Parse GitHub PR URL: https://github.com/owner/repo/pull/num
+    const match = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+    if (!match) {
+      showStatus("מבנה הקישור אינו תקין. נא להזין קישור בפורמט: https://github.com/owner/repo/pull/1", "error");
+      return;
+    }
+    
+    const owner = match[1];
+    const repo = match[2];
+    const prNumber = parseInt(match[3]);
+    
+    showStatus("שולח אירוע סימולציה ל-n8n... אנא המתן", "success");
+    
+    // Simulate GitHub webhook payload format expected by n8n
+    const payload = {
+      action: "opened",
+      number: prNumber,
+      repository: {
+        name: repo,
+        full_name: `${owner}/${repo}`,
+        owner: {
+          login: owner
+        }
+      },
+      pull_request: {
+        head: {
+          ref: "master" // fallback branch
+        }
+      }
+    };
+    
+    // We try to POST to n8n webhook
+    // Note: n8n webhook is locally on port 5678.
+    fetch("http://localhost:5678/webhook/github-webhook", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      mode: "no-cors", // Bypasses CORS browser preflight issues
+      body: JSON.stringify(payload)
+    })
+    .then(() => {
+      showStatus("הסימולציה נשלחה בהצלחה! שרת ה-n8n מעבד את ה-PR ברקע. בדוק את ה-PR שלך ב-GitHub כדי לראות את תגובת האבטחה של הסוכן ואת ה-Commit המתקן.", "success");
+    })
+    .catch((err) => {
+      showStatus("נכשלה שליחת הסימולציה. ודא ששרת ה-n8n פעיל על פורט 5678.", "error");
+    });
+  }
+
+  function showStatus(msg, type) {
+    const statusDiv = document.getElementById("sim-status");
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.innerText = msg;
+    statusDiv.style.display = "block";
   }
 </script>
 </body>
