@@ -129,8 +129,8 @@
     padding:28px;
     margin-top:20px;
   }
-  .github-panel h2{margin:0 0 12px;font-size:20px;display:flex;align-items:center;gap:8px}
-  .github-panel p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px}
+  .github-panel h2{margin:0 0 12px;font-size:20px;display:flex;align-items:center;gap:8px;color:var(--accent)}
+  .github-panel p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 24px}
   
   .step-list{
     list-style-type:none;
@@ -139,25 +139,38 @@
   }
   .step-item{
     position:relative;
-    padding-right:28px;
-    margin-bottom:14px;
+    padding-right:32px;
+    margin-bottom:20px;
     font-size:14px;
     line-height:1.6;
+    color:var(--text);
   }
   .step-number{
     position:absolute;
     right:0;
     top:2px;
-    width:18px;
-    height:18px;
+    width:22px;
+    height:22px;
     border-radius:50%;
-    background:var(--blue);
+    background:linear-gradient(135deg, var(--blue), var(--accent));
     color:#fff;
-    font-size:11px;
+    font-size:12px;
     font-weight:bold;
     display:flex;
     align-items:center;
     justify-content:center;
+  }
+  .step-details{
+    margin-top:6px;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .step-details ol{
+    margin:4px 0 0;
+    padding-right:20px;
+  }
+  .step-details li{
+    margin-bottom:4px;
   }
   .code-box{
     background:#0d1218;
@@ -170,7 +183,8 @@
     display:flex;
     justify-content:space-between;
     align-items:center;
-    margin:6px 0 10px;
+    margin:8px 0 12px;
+    direction:ltr;
   }
   .copy-btn{
     background:none;
@@ -181,6 +195,7 @@
     padding:4px 8px;
     border-radius:4px;
     border:1px solid var(--border);
+    font-family:"Segoe UI", sans-serif;
   }
   .copy-btn:hover{
     color:var(--text);
@@ -194,8 +209,8 @@
     border-radius:12px;
     margin-top:24px;
   }
-  .sim-form h3{margin:0 0 8px;font-size:15px}
-  .sim-form p{font-size:13px;margin-bottom:14px}
+  .sim-form h3{margin:0 0 8px;font-size:15px;color:#fff}
+  .sim-form p{font-size:13px;margin-bottom:14px;color:var(--muted)}
   .input-group{
     display:flex;
     gap:10px;
@@ -296,38 +311,63 @@
   <!-- Tab 2: GitHub Integration Details -->
   <div class="tab-content" id="tab-github">
     <div class="github-panel">
-      <h2>🔗 חיבור אוטומטי ל-Repository (Layer B)</h2>
+      <h2>🔗 חיבור אוטומטי ל-Repository (סביבת ייצור)</h2>
       <p>
-        במקום להעתיק ולהדביק קטעי קוד, המערכת מתחברת ישירות למאגר ה-GitHub שלך באמצעות Webhooks. 
-        בכל פעם שתפתח Pull Request או תעשה Push, המערכת תסרוק את השינויים (ה-Diff) אוטומטית, 
-        תכתוב הערת אבטחה ב-PR ותדחוף תיקון אקטיבי ישירות לענף שלך.
+        חיבור המאגר (Repository) ל-n8n מאפשר למערכת לזהות ולתקן חולשות אבטחה אוטומטית ברקע. 
+        במקום להעתיק ולהדביק קטעי קוד, המערכת מאזינה לאירועי קוד ב-GitHub ומבצעת את התיקון ישירות בתוך ה-Pull Request.
       </p>
 
       <ul class="step-list">
         <li class="step-item">
           <span class="step-number">1</span>
-          <b>העתק את כתובת ה-Webhook שלך מ-n8n:</b>
+          <b>העתקת כתובת ה-Webhook:</b>
+          <div class="step-details">
+            זוהי כתובת היעד שבה שרת ה-n8n מאזין לאירועים מ-GitHub. העתק את הכתובת הבאה:
+          </div>
           <div class="code-box">
             <span id="webhook-url">http://localhost:5678/webhook/github-webhook</span>
-            <button class="copy-btn" onclick="copyWebhook()">העתק</button>
+            <button class="copy-btn" onclick="copyWebhook()">העתק כתובת</button>
+          </div>
+          <div class="step-details" style="font-style: italic; color: var(--accent);">
+            * הערה: במידה ואתם עובדים בסביבה מקומית והמאגר ב-GitHub אינו מותקן על אותו מחשב, יש להשתמש בכתובת מנהרה ציבורית (כגון ngrok או localtunnel) כדי ש-GitHub יוכל לגשת ל-localhost שלכם.
           </div>
         </li>
         <li class="step-item">
           <span class="step-number">2</span>
-          <b>הגדר את ה-Webhook ב-GitHub:</b><br />
-          גש למאגר שלך ב-GitHub $\rightarrow$ <b>Settings</b> $\rightarrow$ <b>Webhooks</b> $\rightarrow$ <b>Add Webhook</b>. 
-          הדבק את הכתובת שהעתקת, הגדר את ה-Content type ל-<code>application/json</code> ובחר להאזין לאירועי <b>Pull Requests</b> ו-<b>Pushes</b>.
+          <b>הוספת ה-Webhook במאגר ה-GitHub שלכם:</b>
+          <div class="step-details">
+            בצעו את השלבים הבאים בממשק של GitHub:
+            <ol>
+              <li>היכנסו לעמוד המאגר שלכם ב-GitHub ולחצו על לשונית <b>Settings</b> (הגדרות) בתפריט העליון.</li>
+              <li>בתפריט הצידי השמאלי, לחצו על <b>Webhooks</b>.</li>
+              <li>לחצו על כפתור <b>Add webhook</b> בצד ימין למעלה.</li>
+              <li>בשדה <b>Payload URL</b>, הדביקו את כתובת ה-Webhook שהעתקתם בשלב 1.</li>
+              <li>בשדה <b>Content type</b>, בחרו באפשרות <b>application/json</b>.</li>
+              <li>תחת "Which events...", בחרו באפשרות <b>Let me select individual events</b>, וסמנו בוי (V) את <b>Pushes</b> ו- <b>Pull Requests</b>.</li>
+              <li>לחצו על הכפתור הירוק <b>Add webhook</b> בתחתית הטופס כדי לשמור.</li>
+            </ol>
+          </div>
         </li>
         <li class="step-item">
           <span class="step-number">3</span>
-          <b>סריקה אוטומטית ברקע:</b><br />
-          זהו זה! החיבור הושלם. כעת כשיווצר שינוי בקוד במאגר, סוכני ה-Red & Blue Team יפעלו ברקע ויבצעו את התיקון ישירות בתוך GitHub.
+          <b>סריקה אקטיבית ותיקון אוטומטי (Self-Healing):</b>
+          <div class="step-details">
+            זהו זה! החיבור הושלם. מעתה, בכל פעם שיווצר Pull Request חדש או שיתבצע Push במאגר:
+            <ul>
+              <li>סוכן ה-Red Team ישלוף אוטומטית את שינויי הקוד (Diff) ויכתוב דוח פגיעות כהערה (Comment) בתוך ה-PR.</li>
+              <li>סוכן ה-Blue Team ייצר קוד מתוקן ויבצע Commit מתקן אוטומטי ישירות לענף הרלוונטי.</li>
+            </ul>
+          </div>
         </li>
       </ul>
 
       <div class="sim-form">
-        <h3>⚡ סימולטור ואימות חיבור GitHub</h3>
-        <p>ניתן לסמלץ אירוע Webhook של Pull Request ישירות מהאתר כדי לבדוק ששרת ה-n8n והסוכנים מגיבים ומבצעים תיקון ב-GitHub.</p>
+        <h3>⚡ סימולטור פשוט לבדיקת החיבור מול GitHub</h3>
+        <p>
+          כדי לוודא ששרת ה-n8n והסוכנים שלכם מוגדרים נכון מול ה-API של GitHub, הדביקו קישור ל-Pull Request 
+          פתוח במאגר שלכם (הכולל קטע קוד פגיע, למשל SQL Injection) ולחצו על הכפתור. הסימולטור ישלח אירוע Webhook 
+          מדומה ל-n8n שיפעיל את תהליך הסריקה והתיקון ב-GitHub.
+        </p>
         <div class="input-group">
           <input id="pr-link" type="text" placeholder="הדבק קישור ל-PR (למשל: https://github.com/Levi2599/cyber-management-project/pull/1)" />
           <button id="sim-btn" onclick="triggerSimulation()">שלח סימולציה</button>
@@ -406,7 +446,6 @@
       return;
     }
     
-    // Parse GitHub PR URL: https://github.com/owner/repo/pull/num
     const match = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
     if (!match) {
       showStatus("מבנה הקישור אינו תקין. נא להזין קישור בפורמט: https://github.com/owner/repo/pull/1", "error");
@@ -419,7 +458,6 @@
     
     showStatus("שולח אירוע סימולציה ל-n8n... אנא המתן", "success");
     
-    // Simulate GitHub webhook payload format expected by n8n
     const payload = {
       action: "opened",
       number: prNumber,
@@ -432,19 +470,17 @@
       },
       pull_request: {
         head: {
-          ref: "master" // fallback branch
+          ref: "master"
         }
       }
     };
     
-    // We try to POST to n8n webhook
-    // Note: n8n webhook is locally on port 5678.
     fetch("http://localhost:5678/webhook/github-webhook", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      mode: "no-cors", // Bypasses CORS browser preflight issues
+      mode: "no-cors",
       body: JSON.stringify(payload)
     })
     .then(() => {
