@@ -17,6 +17,22 @@
     --blue:#3b82f6;
     --accent:#22d3ee;
     --success:#10b981;
+    
+    /* n8n Chat Dark Theme Variables */
+    --chat--color-primary: #3b82f6;
+    --chat--color-secondary: #161d27;
+    --chat--color-background: #121820;
+    --chat--color-font: #e7edf3;
+    --chat--color-typing: #8b98a8;
+    --chat--color-input-background: #0d1218;
+    --chat--color-input-font: #e7edf3;
+    --chat--header--background: #161d27;
+    --chat--header--color: #e7edf3;
+    --chat--message--bot--background: #161d27;
+    --chat--message--bot--color: #e7edf3;
+    --chat--message--user--background: #2563eb;
+    --chat--message--user--color: #ffffff;
+    --chat--window--background: #121820;
   }
   *{box-sizing:border-box}
   body{
@@ -99,6 +115,7 @@
   .flow b{color:var(--text);font-weight:600}
   .flow .arrow{color:var(--accent)}
   
+  /* Chat Container Dark Styling */
   #chat-container{
     display:block;
     margin-top:20px;
@@ -106,6 +123,31 @@
     border-radius:14px;
     overflow:hidden;
     border:1px solid var(--border);
+    background: var(--panel) !important;
+  }
+
+  /* Force dark background for n8n Chat elements */
+  #chat-container div,
+  #chat-container section,
+  #chat-container main,
+  #chat-container footer,
+  #chat-container header,
+  #chat-container form {
+    background-color: var(--panel) !important;
+    color: var(--text) !important;
+  }
+
+  #chat-container input,
+  #chat-container textarea {
+    background-color: #0d1218 !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  #chat-container [class*="chat-message-bot"],
+  #chat-container [class*="chat-message--bot"] {
+    background-color: var(--panel-2) !important;
+    color: var(--text) !important;
   }
   
   /* GitHub Section Styles */
@@ -213,7 +255,7 @@
     <button class="tab-btn" id="tab-github-btn" onclick="switchTab('github')">🐙 סריקת מאגר GitHub / PR</button>
   </div>
 
-  <!-- Tab 1: Chat Interface (No Passcode Gate) -->
+  <!-- Tab 1: Chat Interface -->
   <div class="tab-content active" id="tab-chat">
     <div class="flow">
       <b>קוד ידני</b> <span class="arrow">→</span> <b>Red Team Agent</b> <span class="arrow">→</span>
