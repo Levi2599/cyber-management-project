@@ -282,7 +282,7 @@
     <div class="github-panel">
       <h2>🐙 סריקה וניתוח אוטומטי מ-GitHub</h2>
       <p>
-        הדבק קישור ל-Pull Request או ל-Repository ב-GitHub. 
+        הדבק קישור ל-Pull Request או ל-Repository ב-GitHub (אפשר גם ללחוץ ישר על הפעל סריקה להרצת המאגר כברירת מחדל). 
         סוכני ה-AI של n8n ישלפו את הקוד, ישלחו את ממצאי האבטחה ישירות ל-GitHub ויציגו את התוצאות וההערות כאן בדף.
       </p>
 
@@ -343,11 +343,12 @@
   }
 
   function triggerScan() {
-    const inputUrl = document.getElementById("pr-link").value.trim();
+    let inputUrl = document.getElementById("pr-link").value.trim();
     
+    // Default to the project PR URL if user clicks "Run Scan" without entering text
     if (!inputUrl) {
-      showBox("error", "שגיאה בהזנת קישור", "נא להזין קישור תקין ל-Pull Request או ל-Repository ב-GitHub.");
-      return;
+      inputUrl = "https://github.com/Levi2599/cyber-management-project/pull/1";
+      document.getElementById("pr-link").value = inputUrl;
     }
     
     // Parse GitHub URL
