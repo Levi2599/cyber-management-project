@@ -325,7 +325,7 @@
             זוהי כתובת היעד שבה שרת ה-n8n מאזין לאירועים מ-GitHub. העתק את הכתובת הבאה:
           </div>
           <div class="code-box">
-            <span id="webhook-url">http://localhost:5678/webhook/github-webhook</span>
+            <span id="webhook-url">https://n8n-cyber-462468780030.us-central1.run.app/webhook/github-webhook</span>
             <button class="copy-btn" onclick="copyWebhook()">העתק כתובת</button>
           </div>
           <div class="step-details" style="font-style: italic; color: var(--accent);">
@@ -404,7 +404,7 @@
   function loadChat() {
     import("https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js").then((mod) => {
       mod.createChat({
-        webhookUrl: "http://localhost:5678/webhook/45ffb934-b0fa-45ca-9d5e-02db77995c77/chat",
+        webhookUrl: "https://n8n-cyber-462468780030.us-central1.run.app/webhook/45ffb934-b0fa-45ca-9d5e-02db77995c77/chat",
         target: "#chat-container",
         mode: "fullscreen",
         showWelcomeScreen: true,
@@ -475,7 +475,7 @@
       }
     };
     
-    fetch("http://localhost:5678/webhook/github-webhook", {
+    fetch("https://n8n-cyber-462468780030.us-central1.run.app/webhook/github-webhook", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
