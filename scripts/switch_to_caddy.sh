@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
-DOMAIN="35.193.190.149.sslip.io"
+DOMAIN="35.193.190.149.nip.io"
 
 echo "== pointing n8n at the permanent URL =="
 echo "https://${DOMAIN}" | sudo tee /etc/n8n-public-url >/dev/null
