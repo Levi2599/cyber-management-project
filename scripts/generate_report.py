@@ -313,7 +313,7 @@ def build():
          "מכיוון שקטגוריית ההזרקות מרכזת את החולשות הנפוצות ביותר בקוד אפליקטיבי "
          "(SQL Injection, Command Injection, XSS ו-eval). שאר הקטגוריות מיוצגות ב-1–2 מקרים כל אחת."
          % (len(owasp_counts), top[0], top[1]),
-         bold_prefix="מה רואים בנתונים: ")
+         bold_prefix="מה רואים בגרף: ")
     figure(doc, "fig1_corpus_owasp.png", "תרשים 1: פיזור המקרים הפגיעים לפי קטגוריות OWASP Top 10.")
 
     heading(doc, "ב. איזון בין מקרים פגיעים למקרים בטוחים", Pt(12), md_level=3, space_before=Pt(6))
@@ -328,7 +328,7 @@ def build():
          "הגרסה המתוקנת של מקרה פגיע מקביל — למשל שאילתה פרמטרית מול שרשור מחרוזות. "
          "זוגות כאלה מקשים על המערכת יותר מקוד בטוח אקראי, כי ההבדל ביניהם דק."
          % (n_vuln, n_safe, 100.0 * n_vuln / len(cases), 100.0 * n_safe / len(cases)),
-         bold_prefix="מה רואים בנתונים: ")
+         bold_prefix="מה רואים בגרף: ")
     figure(doc, "fig2_corpus_balance.png", "תרשים 2: יחס המקרים הפגיעים והבטוחים בקורפוס.")
 
     # ---------------- 4. ארכיטקטורה ----------------
@@ -466,6 +466,9 @@ def build():
                    row("החמצות", "false_negatives"),
                    row("התראות שווא (מספר)", "false_positives")])
 
+            figure(doc, "fig5_run_comparison.png",
+                   "תרשים 5: השפעת כל תיקון בהנחיה על שלושת המדדים, באותו קורפוס ואותו מודל.")
+
             b_fps = [r["id"] for r in baseline["records"]
                      if r["label"] == "safe" and r.get("predicted_vulnerable")]
             para(doc,
@@ -517,6 +520,8 @@ def build():
 
         if fps or fns:
             heading(doc, "הטעויות שנותרו", Pt(12), md_level=3, space_before=Pt(6))
+            figure(doc, "fig6_per_case.png",
+                   "תרשים 6: תוצאה לכל אחד מ-20 מקרי הבדיקה. FP מסמן התראת שווא.")
         if fps:
             rows = [[r["id"], by_id.get(r["id"], {}).get("language", "—"),
                      r.get("cvss_vector") or "—"] for r in fps]

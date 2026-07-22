@@ -123,6 +123,73 @@ def chart_runtime(records, out_path):
     return True
 
 
+def chart_run_comparison(runs, out_path):
+    """שלוש ההרצות זו לצד זו — התפתחות המדדים אחרי כל שינוי בהנחיה."""
+    labels = [name for name, _ in runs]
+    metrics = [("Detection", "detection_rate_pct", GREEN),
+               ("False positives", "false_positive_rate_pct", RED),
+               ("Precision", "precision_pct", BLUE)]
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.2), dpi=200)
+    width = 0.26
+    xs = range(len(runs))
+    for i, (label, key, color) in enumerate(metrics):
+        vals = [s[key] for _, s in runs]
+        pos = [x + (i - 1) * width for x in xs]
+        bars = ax.bar(pos, vals, width=width, color=color, label=label)
+        for b, v in zip(bars, vals):
+            ax.text(b.get_x() + b.get_width() / 2, v + 1.5, "%g" % v,
+                    ha="center", fontsize=7, color=NAVY)
+    ax.set_xticks(list(xs))
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_ylim(0, 112)
+    ax.legend(fontsize=8, frameon=False, ncol=3, loc="lower center",
+              bbox_to_anchor=(0.5, -0.30))
+    _style(ax, "Effect of each prompt revision on the same corpus",
+           ylabel="Percent")
+    fig.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def chart_per_case(records, dataset, out_path):
+    """תוצאה לכל מקרה בדיקה — איפה בדיוק המערכת צדקה ואיפה טעתה."""
+    by_id = {c["id"]: c for c in dataset["cases"]}
+    ids, colors, notes = [], [], []
+    for r in records:
+        if r.get("predicted_vulnerable") is None:
+            continue
+        want = by_id[r["id"]]["label"] == "vulnerable"
+        got = r["predicted_vulnerable"]
+        ids.append(r["id"])
+        if want and got:
+            colors.append(GREEN); notes.append("")
+        elif not want and not got:
+            colors.append(BLUE); notes.append("")
+        elif not want and got:
+            colors.append(RED); notes.append("FP")
+        else:
+            colors.append("#E67E22"); notes.append("FN")
+
+    fig, ax = plt.subplots(figsize=(6.6, 2.3), dpi=200)
+    bars = ax.bar(ids, [1] * len(ids), color=colors, width=0.75)
+    for b, n in zip(bars, notes):
+        if n:
+            ax.text(b.get_x() + b.get_width() / 2, 1.06, n, ha="center",
+                    fontsize=7, fontweight="bold", color=NAVY)
+    ax.set_ylim(0, 1.3)
+    ax.set_yticks([])
+    ax.tick_params(axis="x", labelsize=7, rotation=90)
+    for s in ("left", "right", "top"):
+        ax.spines[s].set_visible(False)
+    ax.set_title("Per-case outcome  (green = vulnerability found, "
+                 "blue = correctly clean, red = false positive)",
+                 fontsize=9, color=NAVY, fontweight="bold", pad=10)
+    fig.tight_layout()
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     with open(os.path.join(EVAL_DIR, "dataset.json"), encoding="utf-8") as f:
@@ -148,6 +215,26 @@ def main():
             produced.append(p)
             p = os.path.join(OUT_DIR, "fig4_runtime.png")
             if chart_runtime(results["records"], p):
+                produced.append(p)
+
+            p = os.path.join(OUT_DIR, "fig6_per_case.png")
+            chart_per_case(results["records"], dataset, p)
+            produced.append(p)
+
+            # השוואה בין ההרצות, אם נשמרו הרצות קודמות
+            runs = []
+            for fname, label in (("results_baseline.json", "Run 1"),
+                                 ("results_v2.json", "Run 2")):
+                fpath = os.path.join(EVAL_DIR, fname)
+                if os.path.exists(fpath):
+                    with open(fpath, encoding="utf-8") as f:
+                        prev = json.load(f)["summary"]
+                    if prev.get("valid") is not False:
+                        runs.append((label, prev))
+            if runs:
+                runs.append(("Run %d" % (len(runs) + 1), results["summary"]))
+                p = os.path.join(OUT_DIR, "fig5_run_comparison.png")
+                chart_run_comparison(runs, p)
                 produced.append(p)
     else:
         print("NOTE: results.json not found — performance charts skipped.")

@@ -194,8 +194,8 @@
 
   <h1>מבקר הקוד הכפול</h1>
   <p class="sub">
-    מערכת Multi-Agent אוטונומית: סוכן <b>Red Team</b> מנתח קוד ומאתר חולשות אבטחה (כולל ניקוד CVSS 3.1 מלא),
-    וסוכן <b>Blue Team</b> משכתב אותו לגרסה מאובטחת — Self-Healing בזמן אמת.
+    שני סוכני AI עובדים ברצף על אותו קוד. <b>הצוות האדום</b> מחפש חולשות ונותן לכל אחת ניקוד CVSS 3.1,
+    <b>הצוות הכחול</b> מקבל את הממצא ומחזיר גרסה מתוקנת.
   </p>
 
   <div class="alert" id="global-alert"></div>
@@ -216,17 +216,17 @@
     <div class="grid">
       <div class="card">
         <h3>🛡️ מודל Actor vs. Critic</h3>
-        <p>שני סוכני AI נפרדים במקום סוכן בודד. הסוכן האדום מונחה במפורש להחזיר NO_VULNERABILITIES_FOUND כשאין ממצא, כדי להקטין התראות שווא.</p>
+        <p>מודל אחד שגם מאתר וגם מתקן שופט את עצמו. כאן התפקידים מופרדים: הצוות האדום מוצא, הצוות הכחול מתקן.</p>
       </div>
       <div class="card">
         <h3>📊 ניקוד CVSS 3.1</h3>
-        <p>כל חולשה מקבלת Vector String מלא, ניתן להזנה במחשבון CVSS חיצוני לאימות אנושי.</p>
+        <p>כל ממצא מגיע עם מחרוזת וקטור מלאה. אפשר להעתיק אותה למחשבון CVSS חיצוני ולבדוק את הניקוד.</p>
       </div>
     </div>
 
     <div class="github-panel">
       <h2>🔎 בדיקת קטע קוד</h2>
-      <p>הדביקו קטע קוד. הצוות האדום ינתח אותו ויפיק וקטור CVSS 3.1, והצוות הכחול יחזיר גרסה מאובטחת.</p>
+      <p>הדביקו קטע קוד וקבלו ממצא עם ניקוד CVSS, הוכחת ניצול, וגרסה מתוקנת. לוקח בערך שלוש שניות.</p>
 
       <textarea id="code-input" spellcheck="false" placeholder="def get_user(conn, uid):&#10;    return conn.execute(&quot;SELECT * FROM users WHERE id = &quot; + uid).fetchall()"></textarea>
       <div class="scan-actions">
@@ -248,8 +248,8 @@
     <div class="github-panel">
       <h2>🐙 סריקה וניתוח אוטומטי מ-GitHub</h2>
       <p>
-        הדבק קישור ל-Pull Request ב-GitHub. סוכני ה-AI של n8n ישלפו את ה-Diff, ינתחו אותו,
-        יפרסמו דוח אבטחה כהערה על ה-PR — והתוצאה שתוצג כאן היא הדוח שחזר בפועל מהשרת.
+        הדביקו קישור ל-Pull Request. המערכת מושכת את השינויים, בודקת אותם, ומפרסמת את הדוח
+        כהערה על ה-PR. מה שמוצג כאן הוא מה שהשרת החזיר.
       </p>
 
       <div class="sim-form">
@@ -270,8 +270,7 @@
   </div>
 
   <footer>
-    Dual Code Auditor — פרויקט גמר, קורס מבוא לסייבר בניהול · מונע על ידי n8n + Groq (Llama 3.3 70B)<br />
-    <span id="endpoint-note"></span>
+    Dual Code Auditor · פרויקט גמר, מבוא לסייבר בניהול · נבנה ב-n8n עם Groq
   </footer>
 </div>
 
@@ -299,8 +298,6 @@
   /* דף HTTPS + שרת HTTP = הדפדפן יחסום כל בקשה. מזהים מראש. */
   const isMixedContent =
     window.location.protocol === "https:" && CONFIG.BASE_URL.startsWith("http://");
-
-  document.getElementById("endpoint-note").textContent = "שרת: " + CONFIG.BASE_URL;
 
   /* ---------- Markdown -> HTML בטוח ----------
      תוכן הדוח מגיע ממודל שפה, כלומר הוא אינו מהימן. לכן מבצעים escape מלא
