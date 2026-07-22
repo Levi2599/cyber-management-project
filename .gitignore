@@ -69,3 +69,7 @@ Desktop.ini
 # Superseded by scripts/generate_report.py — the old version contains
 # hard-coded benchmark numbers that were never measured. Kept on disk only.
 /generate_report.py
+
+# Submission bundle for the lecturer — assembled from files already tracked
+"הגשה - מבקר הקוד הכפול/"
+"הגשה - מבקר הקוד הכפול.zip"

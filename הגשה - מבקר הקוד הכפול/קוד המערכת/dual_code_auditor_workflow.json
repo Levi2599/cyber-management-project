@@ -1,0 +1,1143 @@
+{
+  "id": "dualCodeAuditor01",
+  "name": "Dual Code Auditor (Claude Build)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scan-code",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        480
+      ],
+      "id": "1a111111-1111-1111-1111-111111111101",
+      "name": "Code Scan Webhook",
+      "webhookId": "45ffb934-b0fa-45ca-9d5e-02db77995c77"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sc1",
+              "name": "code_to_analyze",
+              "value": "={{ $json.body.code }}",
+              "type": "string"
+            },
+            {
+              "id": "sc2",
+              "name": "source",
+              "value": "manual",
+              "type": "string"
+            },
+            {
+              "id": "sc3",
+              "name": "repo_owner",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "sc4",
+              "name": "repo_name",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "sc5",
+              "name": "pr_number",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "sc6",
+              "name": "branch",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "sc7",
+              "name": "file_path",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -736,
+        480
+      ],
+      "id": "1a111111-1111-1111-1111-111111111114",
+      "name": "Set Chat Input"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-webhook",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111110",
+      "name": "GitHub Webhook",
+      "webhookId": "5384d033-b093-4781-8df1-9cefc2cec705"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Verify Request  —  שכבת אימות לוובהוק הציבורי.\n//\n// ללא הנוד הזה כל אדם באינטרנט יכול לשלוח JSON שרירותי, לגרום למערכת למשוך\n// כל ריפו שהוא, לשרוף טוקנים של ה-LLM ואף לדחוף Commit עם ה-OAuth token שלנו.\n//\n// שני מסלולי אימות:\n//   1. בקשה שמגיעה מ-GitHub  -> אימות חתימת HMAC-SHA256 (x-hub-signature-256)\n//      מול הסוד המשותף שהוגדר ב-Webhook Secret של הריפו.\n//   2. בקשה ידנית מדף התצוגה -> אין חתימה, ולכן מותרים רק מאגרים שנמצאים\n//      ברשימת ההיתר (allow-list) של הפרויקט.\n//\n// הנוד אינו זורק שגיאה אלא מסמן verdict. הסיבה: זריקת שגיאה מחזירה לקורא\n// תשובה ריקה וחסרת משמעות. במקום זה הענף הבא מחזיר 403 עם נימוק ברור.\n// ---------------------------------------------------------------------------\nconst crypto = require('crypto');\n\n// רשימת המאגרים שמותר לסרוק ללא חתימת GitHub (owner/repo, אותיות קטנות).\nconst ALLOWED_REPOS = [\n  'levi2599/dual-code-auditor'\n];\n\n// הסוד המשותף. מוגדר כמשתנה סביבה על שרת ה-n8n:\n//   export GITHUB_WEBHOOK_SECRET='...'\nconst SECRET = $env.GITHUB_WEBHOOK_SECRET || '';\n\nconst item = items[0].json;\nconst headers = item.headers || {};\nconst body = item.body || {};\n\nfunction reject(reason) {\n  return [{ json: { ...item, verified: false, reject_reason: reason } }];\n}\n\nconst fullName = (body.repository && body.repository.full_name) || '';\nif (!fullName || fullName.split('/').length !== 2) {\n  return reject('missing or malformed repository.full_name');\n}\n\nconst signature = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\n\nif (signature) {\n  // --- מסלול 1: בקשה חתומה מ-GitHub ---\n  if (!SECRET) {\n    return reject('signed request received but GITHUB_WEBHOOK_SECRET is not configured on the n8n server');\n  }\n  const expected = 'sha256=' + crypto\n    .createHmac('sha256', SECRET)\n    .update(JSON.stringify(body), 'utf8')\n    .digest('hex');\n\n  const a = Buffer.from(expected, 'utf8');\n  const b = Buffer.from(String(signature), 'utf8');\n  // timingSafeEqual דורש אורך זהה — בדיקת אורך מוקדמת מונעת חריגה.\n  const valid = a.length === b.length && crypto.timingSafeEqual(a, b);\n  if (!valid) {\n    return reject('invalid x-hub-signature-256 (HMAC mismatch)');\n  }\n} else {\n  // --- מסלול 2: הפעלה ידנית מדף התצוגה ---\n  if (!ALLOWED_REPOS.includes(fullName.toLowerCase())) {\n    return reject('unsigned request for a repository that is not in the allow-list (' + fullName + ')');\n  }\n}\n\nreturn [{ json: { ...item, verified: true, reject_reason: '' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111120",
+      "name": "Verify Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "condv",
+              "leftValue": "={{ $json.verified }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -848,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111123",
+      "name": "If Verified"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'rejected', reason: $json.reject_reason }) }}",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -624,
+        -32
+      ],
+      "id": "1a111111-1111-1111-1111-111111111124",
+      "name": "Respond Rejected"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.body.repository.full_name }}/pulls/{{ $json.body.number }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.diff"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-dual-code-auditor"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -736,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111111",
+      "name": "Get PR Diff",
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', stage: 'fetch_pr_diff', reason: 'לא ניתן למשוך את ה-Diff מ-GitHub. סיבות אפשריות: ה-Pull Request אינו קיים, המאגר פרטי, או חריגה ממכסת ה-API.', detail: ($json.error && $json.error.message) || $json.message || '' }) }}",
+        "options": {
+          "responseCode": 502,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -512,
+        -32
+      ],
+      "id": "1a111111-1111-1111-1111-111111111125",
+      "name": "Respond Fetch Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Parse Diff — עיבוד מקדים של קובץ ה-Diff.\n// מטרה: להעביר ל-LLM רק את השורות שנוספו, במקום את ה-Diff הגולמי כולו.\n// זה מקטין את כמות הטוקנים ואת עלות ה-inference.\n// ---------------------------------------------------------------------------\nconst raw = items[0].json.data ?? items[0].json.body ?? items[0].json;\nconst diffText = typeof raw === 'string' ? raw : JSON.stringify(raw);\n\nconst hook = $('GitHub Webhook').item.json.body;\n\n// נתיב הקובץ הראשון שהשתנה ב-Diff.\nconst pathMatch = diffText.match(/^\\+\\+\\+ b\\/(.+)$/m);\nconst filePath = pathMatch ? pathMatch[1].trim() : '';\n\n// שורות שנוספו בלבד (מתעלמים מכותרות ה-Diff עצמן).\nconst addedLines = diffText\n  .split('\\n')\n  .filter((l) => l.startsWith('+') && !l.startsWith('+++'))\n  .map((l) => l.slice(1));\n\nconst addedCode = addedLines.join('\\n').trim();\n\nreturn [{\n  json: {\n    // אם לא זוהו שורות שנוספו — נשלח את הטקסט המלא כגיבוי.\n    code_to_analyze: addedCode || diffText,\n    source: 'github',\n    repo_owner: hook.repository.owner.login,\n    repo_name: hook.repository.name,\n    pr_number: hook.number,\n    branch: (hook.pull_request && hook.pull_request.head && hook.pull_request.head.ref) || 'main',\n    file_path: filePath,\n    diff_added_lines: addedLines.length,\n    diff_total_chars: diffText.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111112",
+      "name": "Parse Diff"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sa1",
+              "name": "code_to_analyze",
+              "value": "={{ $json.code_to_analyze }}",
+              "type": "string"
+            },
+            {
+              "id": "sa2",
+              "name": "source",
+              "value": "={{ $json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "sa3",
+              "name": "repo_owner",
+              "value": "={{ $json.repo_owner }}",
+              "type": "string"
+            },
+            {
+              "id": "sa4",
+              "name": "repo_name",
+              "value": "={{ $json.repo_name }}",
+              "type": "string"
+            },
+            {
+              "id": "sa5",
+              "name": "pr_number",
+              "value": "={{ $json.pr_number }}",
+              "type": "number"
+            },
+            {
+              "id": "sa6",
+              "name": "branch",
+              "value": "={{ $json.branch }}",
+              "type": "string"
+            },
+            {
+              "id": "sa7",
+              "name": "file_path",
+              "value": "={{ $json.file_path }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        160
+      ],
+      "id": "1a111111-1111-1111-1111-111111111113",
+      "name": "Set GitHub Input"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "n1",
+              "name": "code_to_analyze",
+              "value": "={{ $json.code_to_analyze }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-111111111121",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=נתח את הקוד הבא:\n\n```\n{{ $json.code_to_analyze }}\n```",
+        "options": {
+          "systemMessage": "אתה אנליסט Red Team בכיר. נתח את הקוד ואתר חולשות אבטחה.\n\n## שיטת העבודה — שני שלבים, בסדר הזה\n\n**שלב 1 — זיהוי דפוס סיכון.** אתר בקוד דפוס שעלול להיות מסוכן (קלט משתמש שמגיע לשאילתה, לפקודת מערכת, לנתיב קובץ, לפענוח, לתצוגה).\n\n**שלב 2 — בדיקת נטרול. זהו השלב הקריטי.** לפני שאתה מדווח, בדוק אם הקוד *כבר* מכיל אמצעי הגנה שסוגר את הדפוס. עבור על כל שורה בקוד ושאל: האם משהו כאן מנטרל את הניצול?\n\nדוגמאות לאמצעים שמנטרלים לחלוטין, וכשהם קיימים אין לדווח על חולשה:\n- שאילתה פרמטרית עם ? או placeholder במקום שרשור מחרוזות\n- subprocess עם רשימת ארגומנטים במקום shell, או ולידציה של הקלט לפניו\n- os.path.realpath בשילוב בדיקה שהנתיב נשאר בתוך תיקיית הבסיס\n- מנוע תבניות שמבצע escaping אוטומטי (render/template) במקום שרשור HTML\n- json.loads במקום pickle, במיוחד עם אימות טיפוס אחריו\n- hmac.compare_digest במקום השוואת מחרוזות רגילה\n- bcrypt/argon2/scrypt במקום md5/sha1\n- קריאת סוד ממשתנה סביבה במקום מחרוזת בקוד\n\n**הכלל המכריע:** דווח על חולשה רק אם אתה יכול לכתוב PoC קונקרטי שעובד *למרות* ההגנות שנמצאות בקוד. אם ההגנה חוסמת את ה-PoC שחשבת עליו — אין חולשה. דפוס שנראה מסוכן אך מנוטרל אינו חולשה.\n\n## חריג לשלב 2 — מחלקות שבהן בדיקת הנטרול אינה רלוונטית\n\nלחולשות הבאות אין אמצעי הגנה אפשרי *בתוך* אותו קטע קוד: הקוד עצמו הוא הבעיה, והתיקון מחייב שינוי מבני או הוצאת הערך החוצה. במקרים אלה דלג על שלב 2 ודווח תמיד:\n- סוד מוטמע בקוד: סיסמה, מפתח API, טוקן או מחרוזת התחברות כערך קבוע\n- גיבוב חלש לסיסמאות: MD5, SHA1 או SHA256 בלי salt ובלי פונקציה איטית\n- ביטול אימות תעודה: verify=False, rejectUnauthorized=false, InsecureSkipVerify\n- השוואת סוד או טוקן באמצעות == במקום השוואה עמידה בפני תזמון\n- הצפנה במצב לא בטוח, למשל AES-ECB\n\nבחריגים אלה אין לחפש 'אמצעי הגנה קיים'. היעדר הגנה הוא הממצא עצמו. בשדה 'מדוע ההגנות הקיימות אינן מספיקות' כתוב שלא קיים אמצעי הגנה בקוד ושהתיקון מחייב שינוי מבני.\n\n## פלט\n\nאם מצאת חולשה שניתנת לניצול, החזר בדיוק את המבנה הזה, בלי הקדמות:\n\n**חולשה:** <שם>\n**CWE:** <מזהה>\n**שורות מושפעות:** <ציטוט קצר של הקוד הפגיע>\n**מדוע ההגנות הקיימות אינן מספיקות:** <משפט אחד. אם אין הגנות בקוד, כתוב: לא נמצאו אמצעי הגנה.>\n**PoC:** <2-3 שורות שמדגימות ניצול שעובד>\n**CVSS:3.1/AV:?/AC:?/PR:?/UI:?/S:?/C:?/I:?/A:?**\n**נימוק CVSS:** משפט אחד.\n\nאם הקוד מוגן, או שלא מצאת חולשה שניתנת לניצול — החזר בדיוק NO_VULNERABILITIES_FOUND ואחריו משפט שמסביר איזה אמצעי הגנה סוגר את הדפוס.\n\nכללים:\n- עד 170 מילים בסך הכול.\n- מחרוזת וקטור CVSS 3.1 מלאה היא חובה כשמדווחת חולשה.\n- אם יש כמה חולשות, דווח רק על החמורה ביותר.\n- דיווח שווא הוא כישלון חמור בדיוק כמו החמצת חולשה אמיתית. אל תדווח כדי לספק את הבקשה."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        160,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-111111111102",
+      "name": "Red Team Agent",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        96,
+        544
+      ],
+      "id": "1a111111-1111-1111-1111-111111111103",
+      "name": "Red Team Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "VkpDDPLXqnYQQkZx",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=## קוד מקור\n\n```\n{{ $('Normalize Input').item.json.code_to_analyze }}\n```\n\n## ממצא הצוות האדום\n\n{{ $('Capture Red Finding').item.json.red_output }}\n\n## משימה\n\nהחזר את הקוד המתוקן בבלוק קוד יחיד, ואחריו נימוק קצר.",
+        "options": {
+          "systemMessage": "אתה ארכיטקט אבטחה מצוות ה-Blue Team. אתה מקבל קוד מקור וממצא אבטחה מובנה, ומחזיר גרסה מתוקנת.\n\nהפלט שלך, בסדר הזה ובלי שום דבר לפניו:\n1. בלוק קוד markdown יחיד (```) עם הקוד המתוקן המלא. הבלוק חייב להכיל קוד תקין בלבד — בלי הסברים, בלי הערות בעברית, בלי טקסט מסביב. הבלוק הזה נדחף כפי שהוא לקובץ המקור.\n2. מתחת לבלוק: עד 60 מילים שמסבירות מה תוקן וכיצד התיקון חוסם את ה-PoC.\n\nהתייחס למדדי ה-CVSS שדווחו. לדוגמה, אם Attack Vector הוא Network, ולידציית הקלט חייבת להתבצע בקצה הרשת.\n\nאם הממצא הוא NO_VULNERABILITIES_FOUND — אל תשנה דבר. החזר NO_FIX_REQUIRED ומשפט הסבר, בלי בלוק קוד."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-111111111104",
+      "name": "Blue Team Agent",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        400,
+        544
+      ],
+      "id": "1a111111-1111-1111-1111-111111111105",
+      "name": "Blue Team Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "VkpDDPLXqnYQQkZx",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Build Report — שכבת ה-Formatting (שלב 4 בדרישות המטלה).\n//\n// אחראית על שלושה דברים:\n//   1. חילוץ מחרוזת וקטור ה-CVSS מתוך דוח הצוות האדום.\n//   2. חילוץ *הקוד בלבד* מתוך פלט הצוות הכחול. זה קריטי: פלט הסוכן מורכב\n//      מפרוזה בעברית + בלוק קוד. דחיפת הפלט הגולמי לריפו הייתה הורסת את\n//      קובץ המקור.\n//   3. הרכבת דוח Markdown קריא לפרסום ב-PR, בצ'אט וב-Google Drive.\n// ---------------------------------------------------------------------------\nconst base = $('Normalize Input').item.json;\nconst redOutput = String($('Capture Red Finding').item.json.red_output || '');\nconst blueOutput = String($('Capture Blue Fix').item.json.blue_output || '');\n\n// --- 1. וקטור CVSS ---\nconst cvssMatch = redOutput.match(/CVSS:3\\.1\\/(?:[A-Z]{1,2}:[A-Z]\\/?)+/);\nconst cvssVector = cvssMatch ? cvssMatch[0].replace(/\\/$/, '') : '';\n\n// --- 2. חילוץ בלוק הקוד מפלט הצוות הכחול ---\nconst noVuln = /NO_VULNERABILITIES_FOUND/i.test(redOutput);\nconst noFix = /NO_FIX_REQUIRED/i.test(blueOutput);\n\nlet fixedCode = '';\nconst blocks = [...blueOutput.matchAll(/```[a-zA-Z0-9_+-]*\\n([\\s\\S]*?)```/g)].map((m) => m[1]);\nif (blocks.length > 0) {\n  // הבלוק הארוך ביותר הוא כמעט תמיד הקוד המתוקן המלא.\n  fixedCode = blocks.sort((a, b) => b.length - a.length)[0].trim();\n}\n\n// דוחפים Commit רק אם באמת יש חולשה, יש קוד מתוקן, ויש נתיב קובץ אמיתי.\nconst hasFixedCode = Boolean(\n  fixedCode &&\n  fixedCode.length > 20 &&\n  !noVuln &&\n  !noFix &&\n  base.file_path\n);\n\n// --- 3. דוח Markdown ---\nconst header = noVuln\n  ? '## ✅ מבקר הקוד הכפול — לא נמצאו חולשות'\n  : '## 🛡️ מבקר הקוד הכפול — דוח ביקורת אבטחה';\n\nconst reportParts = [\n  header,\n  '',\n  '| שדה | ערך |',\n  '| --- | --- |',\n  '| מקור הבדיקה | ' + (base.source === 'github' ? 'GitHub Pull Request' : 'הזנת קוד ידנית') + ' |',\n  '| קובץ | ' + (base.file_path || '—') + ' |',\n  '| וקטור CVSS 3.1 | ' + (cvssVector || '— (לא דווחה חולשה)') + ' |',\n  '| תיקון אוטומטי נדחף | ' + (hasFixedCode ? 'כן' : 'לא') + ' |',\n  '',\n  '### 🔴 ממצאי הצוות האדום (Red Team)',\n  '',\n  redOutput,\n  '',\n  '---',\n  '',\n  '### 🔵 תיקון הצוות הכחול (Blue Team)',\n  '',\n  blueOutput,\n  '',\n  '---',\n  '',\n  '_נוצר אוטומטית על ידי Dual Code Auditor · ' + new Date().toISOString() + '_'\n];\n\nreturn [{\n  json: {\n    ...base,\n    cvss_vector_string: cvssVector,\n    vulnerability_report: redOutput,\n    blue_team_output: blueOutput,\n    fixed_code: fixedCode,\n    has_fixed_code: hasFixedCode,\n    no_vulnerabilities_found: noVuln,\n    full_report: reportParts.join('\\n'),\n    log_file_name: 'DualCodeAuditor_' + new Date().toISOString().replace(/[:.]/g, '-') + '.md'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-111111111106",
+      "name": "Build Report"
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "content": "={{ $json.full_report }}",
+        "name": "={{ $json.log_file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        992,
+        512
+      ],
+      "id": "1a111111-1111-1111-1111-111111111107",
+      "name": "Google Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YK2uWLU1IvWttgTg",
+          "name": "Google Drive account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "github",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        992,
+        224
+      ],
+      "id": "1a111111-1111-1111-1111-111111111115",
+      "name": "If GitHub Source"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "issue",
+        "operation": "createComment",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $json.repo_owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $json.repo_name }}",
+          "mode": "name"
+        },
+        "issueNumber": "={{ $json.pr_number }}",
+        "body": "={{ $json.full_report }}"
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        128
+      ],
+      "id": "1a111111-1111-1111-1111-111111111116",
+      "name": "GitHub PR Comment",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "githubApi": {
+          "id": "rNJfVPd8nMYbYgvj",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond2",
+              "leftValue": "={{ $('Build Report').item.json.has_fixed_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        128
+      ],
+      "id": "1a111111-1111-1111-1111-111111111122",
+      "name": "If Has Fixed Code"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "file",
+        "operation": "edit",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Build Report').item.json.repo_owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Build Report').item.json.repo_name }}",
+          "mode": "name"
+        },
+        "filePath": "={{ $('Build Report').item.json.file_path }}",
+        "fileContent": "={{ $('Build Report').item.json.fixed_code }}",
+        "commitMessage": "=Secure fix for {{ $('Build Report').item.json.cvss_vector_string || 'detected vulnerability' }} (auto-healed by Blue Team agent)",
+        "additionalParameters": {
+          "branch": {
+            "branch": "={{ $('Build Report').item.json.branch }}"
+          }
+        }
+      },
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        32
+      ],
+      "id": "1a111111-1111-1111-1111-111111111117",
+      "name": "GitHub Push Commit",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "githubApi": {
+          "id": "rNJfVPd8nMYbYgvj",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2112,
+        128
+      ],
+      "id": "1a111111-1111-1111-1111-111111111118",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', source: $json.source, file_path: $json.file_path, cvss_vector_string: $json.cvss_vector_string, no_vulnerabilities_found: $json.no_vulnerabilities_found, commit_pushed: false, report_markdown: $json.full_report }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-111111111119",
+      "name": "Respond Scan"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=נתח את הקוד הבא:\n\n```\n{{ $json.code_to_analyze }}\n```",
+        "options": {
+          "systemMessage": "אתה אנליסט Red Team בכיר. נתח את הקוד ואתר חולשות אבטחה.\n\n## שיטת העבודה — שני שלבים, בסדר הזה\n\n**שלב 1 — זיהוי דפוס סיכון.** אתר בקוד דפוס שעלול להיות מסוכן (קלט משתמש שמגיע לשאילתה, לפקודת מערכת, לנתיב קובץ, לפענוח, לתצוגה).\n\n**שלב 2 — בדיקת נטרול. זהו השלב הקריטי.** לפני שאתה מדווח, בדוק אם הקוד *כבר* מכיל אמצעי הגנה שסוגר את הדפוס. עבור על כל שורה בקוד ושאל: האם משהו כאן מנטרל את הניצול?\n\nדוגמאות לאמצעים שמנטרלים לחלוטין, וכשהם קיימים אין לדווח על חולשה:\n- שאילתה פרמטרית עם ? או placeholder במקום שרשור מחרוזות\n- subprocess עם רשימת ארגומנטים במקום shell, או ולידציה של הקלט לפניו\n- os.path.realpath בשילוב בדיקה שהנתיב נשאר בתוך תיקיית הבסיס\n- מנוע תבניות שמבצע escaping אוטומטי (render/template) במקום שרשור HTML\n- json.loads במקום pickle, במיוחד עם אימות טיפוס אחריו\n- hmac.compare_digest במקום השוואת מחרוזות רגילה\n- bcrypt/argon2/scrypt במקום md5/sha1\n- קריאת סוד ממשתנה סביבה במקום מחרוזת בקוד\n\n**הכלל המכריע:** דווח על חולשה רק אם אתה יכול לכתוב PoC קונקרטי שעובד *למרות* ההגנות שנמצאות בקוד. אם ההגנה חוסמת את ה-PoC שחשבת עליו — אין חולשה. דפוס שנראה מסוכן אך מנוטרל אינו חולשה.\n\n## חריג לשלב 2 — מחלקות שבהן בדיקת הנטרול אינה רלוונטית\n\nלחולשות הבאות אין אמצעי הגנה אפשרי *בתוך* אותו קטע קוד: הקוד עצמו הוא הבעיה, והתיקון מחייב שינוי מבני או הוצאת הערך החוצה. במקרים אלה דלג על שלב 2 ודווח תמיד:\n- סוד מוטמע בקוד: סיסמה, מפתח API, טוקן או מחרוזת התחברות כערך קבוע\n- גיבוב חלש לסיסמאות: MD5, SHA1 או SHA256 בלי salt ובלי פונקציה איטית\n- ביטול אימות תעודה: verify=False, rejectUnauthorized=false, InsecureSkipVerify\n- השוואת סוד או טוקן באמצעות == במקום השוואה עמידה בפני תזמון\n- הצפנה במצב לא בטוח, למשל AES-ECB\n\nבחריגים אלה אין לחפש 'אמצעי הגנה קיים'. היעדר הגנה הוא הממצא עצמו. בשדה 'מדוע ההגנות הקיימות אינן מספיקות' כתוב שלא קיים אמצעי הגנה בקוד ושהתיקון מחייב שינוי מבני.\n\n## פלט\n\nאם מצאת חולשה שניתנת לניצול, החזר בדיוק את המבנה הזה, בלי הקדמות:\n\n**חולשה:** <שם>\n**CWE:** <מזהה>\n**שורות מושפעות:** <ציטוט קצר של הקוד הפגיע>\n**מדוע ההגנות הקיימות אינן מספיקות:** <משפט אחד. אם אין הגנות בקוד, כתוב: לא נמצאו אמצעי הגנה.>\n**PoC:** <2-3 שורות שמדגימות ניצול שעובד>\n**CVSS:3.1/AV:?/AC:?/PR:?/UI:?/S:?/C:?/I:?/A:?**\n**נימוק CVSS:** משפט אחד.\n\nאם הקוד מוגן, או שלא מצאת חולשה שניתנת לניצול — החזר בדיוק NO_VULNERABILITIES_FOUND ואחריו משפט שמסביר איזה אמצעי הגנה סוגר את הדפוס.\n\nכללים:\n- עד 170 מילים בסך הכול.\n- מחרוזת וקטור CVSS 3.1 מלאה היא חובה כשמדווחת חולשה.\n- אם יש כמה חולשות, דווח רק על החמורה ביותר.\n- דיווח שווא הוא כישלון חמור בדיוק כמו החמצת חולשה אמיתית. אל תדווח כדי לספק את הבקשה."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        160,
+        760
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111f2",
+      "name": "Red Team Fallback",
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        96,
+        980
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111f3",
+      "name": "Red Team Fallback Model",
+      "credentials": {
+        "groqApi": {
+          "id": "VkpDDPLXqnYQQkZx",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "red_output",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        336,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111c1",
+      "name": "Capture Red Finding"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=## קוד מקור\n\n```\n{{ $('Normalize Input').item.json.code_to_analyze }}\n```\n\n## ממצא הצוות האדום\n\n{{ $('Capture Red Finding').item.json.red_output }}\n\n## משימה\n\nהחזר את הקוד המתוקן בבלוק קוד יחיד, ואחריו נימוק קצר.",
+        "options": {
+          "systemMessage": "אתה ארכיטקט אבטחה מצוות ה-Blue Team. אתה מקבל קוד מקור וממצא אבטחה מובנה, ומחזיר גרסה מתוקנת.\n\nהפלט שלך, בסדר הזה ובלי שום דבר לפניו:\n1. בלוק קוד markdown יחיד (```) עם הקוד המתוקן המלא. הבלוק חייב להכיל קוד תקין בלבד — בלי הסברים, בלי הערות בעברית, בלי טקסט מסביב. הבלוק הזה נדחף כפי שהוא לקובץ המקור.\n2. מתחת לבלוק: עד 60 מילים שמסבירות מה תוקן וכיצד התיקון חוסם את ה-PoC.\n\nהתייחס למדדי ה-CVSS שדווחו. לדוגמה, אם Attack Vector הוא Network, ולידציית הקלט חייבת להתבצע בקצה הרשת.\n\nאם הממצא הוא NO_VULNERABILITIES_FOUND — אל תשנה דבר. החזר NO_FIX_REQUIRED ומשפט הסבר, בלי בלוק קוד."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        560,
+        760
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111f4",
+      "name": "Blue Team Fallback",
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        496,
+        980
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111f5",
+      "name": "Blue Team Fallback Model",
+      "credentials": {
+        "groqApi": {
+          "id": "VkpDDPLXqnYQQkZx",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "blue_output",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        320
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111c2",
+      "name": "Capture Blue Fix"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Check Commit Result — מדווח מה באמת קרה בדחיפת ה-Commit.\n//\n// לצומת ה-Commit מוגדר onError: continueRegularOutput, כדי שכשל בכתיבה לא\n// יפיל את כל ההרצה אחרי שהדוח כבר פורסם. המחיר הוא שהזרימה ממשיכה גם\n// כשהדחיפה נכשלה. גרסה קודמת דיווחה כאן את הכוונה ולא את התוצאה, וכך\n// החזירה commit_pushed=true גם כשה-API של GitHub החזיר 404.\n// ---------------------------------------------------------------------------\nconst base = $('Build Report').item.json;\nconst res = items[0].json || {};\nconst failed = Boolean(res.error);\n\nreturn [{ json: {\n  status: 'ok',\n  source: base.source,\n  repo: base.repo_owner + '/' + base.repo_name,\n  pr_number: base.pr_number,\n  file_path: base.file_path,\n  branch: base.branch,\n  cvss_vector_string: base.cvss_vector_string,\n  no_vulnerabilities_found: base.no_vulnerabilities_found,\n  commit_pushed: !failed,\n  commit_error: failed ? String(res.error.message || res.error) : null,\n  report_markdown: base.full_report\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        32
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111d1",
+      "name": "Check Commit Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// לא נדחף Commit: או שלא נמצאה חולשה, או שהסוכן הכחול לא החזיר בלוק קוד,\n// או שאין נתיב קובץ. בכל המקרים האלה commit_pushed הוא false.\nconst base = $('Build Report').item.json;\nreturn [{ json: {\n  status: 'ok',\n  source: base.source,\n  repo: base.repo_owner + '/' + base.repo_name,\n  pr_number: base.pr_number,\n  file_path: base.file_path,\n  branch: base.branch,\n  cvss_vector_string: base.cvss_vector_string,\n  no_vulnerabilities_found: base.no_vulnerabilities_found,\n  commit_pushed: false,\n  commit_error: null,\n  report_markdown: base.full_report\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        224
+      ],
+      "id": "1a111111-1111-1111-1111-1111111111d2",
+      "name": "No Commit Result"
+    }
+  ],
+  "connections": {
+    "Set Chat Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Request": {
+      "main": [
+        [
+          {
+            "node": "If Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Verified": {
+      "main": [
+        [
+          {
+            "node": "Get PR Diff",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PR Diff": {
+      "main": [
+        [
+          {
+            "node": "Parse Diff",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Fetch Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Diff": {
+      "main": [
+        [
+          {
+            "node": "Set GitHub Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set GitHub Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Red Team Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Red Team Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Red Team Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Red Team Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture Red Finding",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Red Team Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blue Team Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Blue Team Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blue Team Agent": {
+      "main": [
+        [
+          {
+            "node": "Capture Blue Fix",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Blue Team Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report": {
+      "main": [
+        [
+          {
+            "node": "If GitHub Source",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If GitHub Source": {
+      "main": [
+        [
+          {
+            "node": "GitHub PR Comment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub PR Comment": {
+      "main": [
+        [
+          {
+            "node": "If Has Fixed Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Has Fixed Code": {
+      "main": [
+        [
+          {
+            "node": "GitHub Push Commit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Commit Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Push Commit": {
+      "main": [
+        [
+          {
+            "node": "Check Commit Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Scan Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Chat Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Red Team Fallback": {
+      "main": [
+        [
+          {
+            "node": "Capture Red Finding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Red Team Fallback Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Red Team Fallback",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Red Finding": {
+      "main": [
+        [
+          {
+            "node": "Blue Team Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blue Team Fallback": {
+      "main": [
+        [
+          {
+            "node": "Capture Blue Fix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blue Team Fallback Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Blue Team Fallback",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Blue Fix": {
+      "main": [
+        [
+          {
+            "node": "Build Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Commit Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Commit Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
