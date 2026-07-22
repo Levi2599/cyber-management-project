@@ -6,6 +6,9 @@ a **Blue Team** agent receives the original code plus that report and returns a 
 
 Built as a capstone project for the course *Introduction to Cyber Management*.
 
+**Live demo:** https://levi2599.github.io/Dual-Code-Auditor/
+**Worked example:** [pull request #1](https://github.com/Levi2599/Dual-Code-Auditor/pull/1) — the auditor commented on it and pushed the fix itself.
+
 ---
 
 ## How it works
