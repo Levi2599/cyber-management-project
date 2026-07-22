@@ -36,8 +36,19 @@ CVSS_RE = re.compile(r"CVSS:3\.1/(?:[A-Z]{1,2}:[A-Z]/?)+")
 NO_VULN_RE = re.compile(r"NO_VULNERABILITIES_FOUND", re.IGNORECASE)
 
 
+class ScanFailed(Exception):
+    """הבקשה לא החזירה דוח שמיש. חייבת להיספר ככשל — לעולם לא כתוצאה."""
+
+
 def call_chat(base_url: str, code: str, timeout: int):
-    """שולח קטע קוד ל-endpoint הסריקה ומחזיר (טקסט הדוח, משך בשניות)."""
+    """
+    שולח קטע קוד ל-endpoint הסריקה ומחזיר (dict התשובה, משך בשניות).
+
+    תשובה ריקה או שאינה JSON פירושה שהזרימה נפלה — לרוב מפני שספק המודל
+    החזיר שגיאת מכסה. במקרה כזה נזרקת ScanFailed. זה קריטי: גרסה קודמת של
+    הקובץ סיווגה תשובה ריקה כ"לא נמצאה חולשה", וכך הפכה כשלי תשתית
+    ל"מדידה" שנראית תקינה. כשל חייב להיראות ככשל.
+    """
     url = base_url.rstrip("/") + "/webhook/scan-code"
     payload = json.dumps({"code": code}).encode("utf-8")
 
@@ -49,23 +60,31 @@ def call_chat(base_url: str, code: str, timeout: int):
         raw = res.read().decode("utf-8", errors="replace")
     elapsed = time.time() - started
 
+    if not raw.strip():
+        raise ScanFailed("empty response body (the workflow stopped before responding)")
     try:
         data = json.loads(raw)
-        text = data.get("report_markdown") or data.get("output") or raw
     except json.JSONDecodeError:
-        text = raw
-    return text, elapsed
+        raise ScanFailed("response was not JSON: %s" % raw[:120])
+    if not data.get("report_markdown"):
+        raise ScanFailed("response contained no report_markdown")
+    return data, elapsed
 
 
-def classify(text: str) -> bool:
-    """True = המערכת טוענת שיש חולשה."""
+def classify(data: dict) -> bool:
+    """
+    True = המערכת טוענת שיש חולשה.
+
+    מסתמך על השדות המובנים שהמערכת עצמה חישבה בצומת Build Report, ולא על
+    ניחוש מילות מפתח בטקסט חופשי של מודל שפה.
+    """
+    if data.get("no_vulnerabilities_found") is True:
+        return False
+    if data.get("cvss_vector_string"):
+        return True
+    text = data.get("report_markdown", "")
     if NO_VULN_RE.search(text):
         return False
-    # אם דווח וקטור CVSS, זו הצהרה חד-משמעית על חולשה.
-    if CVSS_RE.search(text):
-        return True
-    # אין וקטור ואין הצהרת "נקי" — נחשב כדיווח על חולשה רק אם הוזכרה
-    # מפורשות מילת מפתח של ממצא. אחרת נחשיב כלא-מסווג (ראו main).
     return bool(re.search(r"vulnerab|חולשה|פגיעות|injection|CWE-", text, re.IGNORECASE))
 
 
@@ -74,6 +93,9 @@ def main():
     ap.add_argument("--base-url", default=os.environ.get("N8N_BASE_URL", "http://35.193.190.149:5678"))
     ap.add_argument("--timeout", type=int, default=180)
     ap.add_argument("--limit", type=int, default=0, help="הרץ רק N מקרים ראשונים (לבדיקה מהירה)")
+    ap.add_argument("--delay", type=float, default=12.0,
+                    help="השהיה בשניות בין מקרים, כדי לא לשחוק את מכסת ספק המודל")
+    ap.add_argument("--retries", type=int, default=3, help="ניסיונות חוזרים לכל מקרה")
     args = ap.parse_args()
 
     with open(DATASET_PATH, encoding="utf-8") as f:
@@ -88,30 +110,48 @@ def main():
 
     for i, case in enumerate(cases, 1):
         print(f"[{i}/{len(cases)}] {case['id']} ({case['label']}) ...", end=" ", flush=True)
-        try:
-            text, elapsed = call_chat(args.base_url, case["code"], args.timeout)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            print(f"ERROR: {exc}")
+
+        data = elapsed = None
+        last_err = None
+        # ספק המודל מגביל בקשות לדקה. ריצה רצופה שוחקת את המכסה, ולכן כל
+        # ניסיון כושל מקבל המתנה גדלה לפני ניסיון חוזר.
+        for attempt in range(args.retries + 1):
+            try:
+                data, elapsed = call_chat(args.base_url, case["code"], args.timeout)
+                break
+            except (ScanFailed, urllib.error.URLError, TimeoutError, OSError) as exc:
+                last_err = exc
+                data = None
+                if attempt < args.retries:
+                    backoff = args.delay * (2 ** attempt)
+                    print(f"retry in {backoff:.0f}s...", end=" ", flush=True)
+                    time.sleep(backoff)
+
+        if data is None:
+            print(f"FAILED: {last_err}")
             errors += 1
             records.append({
-                "id": case["id"], "label": case["label"], "error": str(exc),
+                "id": case["id"], "label": case["label"], "error": str(last_err),
                 "predicted_vulnerable": None, "elapsed_sec": None, "cvss_vector": None,
+                "response_chars": 0,
             })
+            time.sleep(args.delay)
             continue
 
-        predicted = classify(text)
-        cvss = CVSS_RE.search(text)
+        predicted = classify(data)
+        report = data.get("report_markdown", "")
         records.append({
             "id": case["id"],
             "label": case["label"],
             "vuln_type": case.get("vuln_type"),
             "owasp": case.get("owasp"),
             "predicted_vulnerable": predicted,
-            "cvss_vector": cvss.group(0) if cvss else None,
+            "cvss_vector": data.get("cvss_vector_string") or None,
             "elapsed_sec": round(elapsed, 2),
-            "response_chars": len(text),
+            "response_chars": len(report),
         })
         print(f"{'VULN' if predicted else 'CLEAN'}  {elapsed:.1f}s")
+        time.sleep(args.delay)
 
     ok = [r for r in records if r.get("predicted_vulnerable") is not None]
     vuln_cases = [r for r in ok if r["label"] == "vulnerable"]
@@ -152,6 +192,15 @@ def main():
 
     with open(RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump({"summary": summary, "records": records}, f, ensure_ascii=False, indent=2)
+
+    # אם חלק ניכר מהמקרים נכשל, האחוזים מחושבים על מדגם חלקי ומוטה ואין
+    # לדווח עליהם. מסמנים את התוצאה כפסולה כדי שמחולל הדוח לא יציג אותה.
+    summary["valid"] = errors == 0 and len(ok) == len(cases)
+    if not summary["valid"]:
+        summary["invalid_reason"] = (
+            "%d of %d scans failed; rates would be computed on a partial sample"
+            % (errors, len(cases))
+        )
 
     print("\n=== SUMMARY ===")
     for k, v in summary.items():

@@ -54,8 +54,8 @@ const goodBody = {
   action: 'opened',
   number: 7,
   repository: {
-    name: 'cyber-management-project',
-    full_name: 'Levi2599/cyber-management-project',
+    name: 'Dual-Code-Auditor',
+    full_name: 'Levi2599/Dual-Code-Auditor',
     owner: { login: 'Levi2599' }
   },
   pull_request: { head: { ref: 'feature/login' } }
@@ -163,7 +163,7 @@ test('מעביר נכון את מטא-הנתונים של ה-PR', () => {
     nodes: { 'GitHub Webhook': { body: goodBody } }
   })[0].json;
   assert.strictEqual(out.repo_owner, 'Levi2599');
-  assert.strictEqual(out.repo_name, 'cyber-management-project');
+  assert.strictEqual(out.repo_name, 'Dual-Code-Auditor');
   assert.strictEqual(out.pr_number, 7);
   assert.strictEqual(out.branch, 'feature/login');
   assert.strictEqual(out.source, 'github');
@@ -176,7 +176,7 @@ const baseGithub = {
   code_to_analyze: 'q = "SELECT * FROM users WHERE id = " + uid',
   source: 'github',
   repo_owner: 'Levi2599',
-  repo_name: 'cyber-management-project',
+  repo_name: 'Dual-Code-Auditor',
   pr_number: 7,
   branch: 'feature/login',
   file_path: 'app/db.py'
@@ -205,8 +205,8 @@ test('מחלץ את מחרוזת וקטור ה-CVSS', () => {
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: blueFix }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: blueFix }
     }
   })[0].json;
   assert.strictEqual(out.cvss_vector_string, 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H');
@@ -217,8 +217,8 @@ test('דוחף לריפו קוד בלבד — בלי פרוזה בעברית', (
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: blueFix }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: blueFix }
     }
   })[0].json;
   assert.strictEqual(out.has_fixed_code, true);
@@ -233,8 +233,8 @@ test('לא נמצאה חולשה -> לא נדחף Commit', () => {
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: 'NO_VULNERABILITIES_FOUND\nהקוד משתמש בשאילתות פרמטריות.' },
-      'Blue Team Agent': { output: 'NO_FIX_REQUIRED' }
+      'Capture Red Finding': { red_output: 'NO_VULNERABILITIES_FOUND\nהקוד משתמש בשאילתות פרמטריות.' },
+      'Capture Blue Fix': { blue_output: 'NO_FIX_REQUIRED' }
     }
   })[0].json;
   assert.strictEqual(out.no_vulnerabilities_found, true);
@@ -247,8 +247,8 @@ test('פלט ללא בלוק קוד -> לא נדחף Commit (הגנה מפני �
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: 'צריך להשתמש בשאילתות פרמטריות, בלי לתת קוד.' }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: 'צריך להשתמש בשאילתות פרמטריות, בלי לתת קוד.' }
     }
   })[0].json;
   assert.strictEqual(out.has_fixed_code, false);
@@ -259,8 +259,8 @@ test('מקור צ׳אט (בלי נתיב קובץ) -> לא נדחף Commit', () 
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': { ...baseGithub, source: 'chat', file_path: '', repo_owner: '', repo_name: '' },
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: blueFix }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: blueFix }
     }
   })[0].json;
   assert.strictEqual(out.has_fixed_code, false);
@@ -272,8 +272,8 @@ test('הדוח בפורמט Markdown ומכיל את שני הצוותים', () 
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: blueFix }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: blueFix }
     }
   })[0].json;
   assert.ok(out.full_report.includes('### 🔴'), 'חסר פרק הצוות האדום');
@@ -287,8 +287,8 @@ test('שם קובץ הלוג ייחודי לכל הרצה (לא דורס לוג 
     items: [{ json: {} }],
     nodes: {
       'Normalize Input': baseGithub,
-      'Red Team Agent': { output: redVuln },
-      'Blue Team Agent': { output: blueFix }
+      'Capture Red Finding': { red_output: redVuln },
+      'Capture Blue Fix': { blue_output: blueFix }
     }
   })[0].json.log_file_name;
   const a = mk();

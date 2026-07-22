@@ -152,7 +152,14 @@ def load_results():
         return None
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    if data.get("summary", {}).get("completed_cases", 0) == 0:
+    summary = data.get("summary", {})
+    if summary.get("completed_cases", 0) == 0:
+        return None
+    # ריצה שחלק ממקריה נכשלו אינה מדידה. עדיף דוח שאומר "טרם הורצה" על פני
+    # דוח שמציג אחוזים שחושבו על מדגם חלקי.
+    if summary.get("valid") is False:
+        print("NOTE: results.json is marked invalid — %s" % summary.get("invalid_reason", ""))
+        print("      The report will state that the evaluation has not been run.")
         return None
     return data
 
