@@ -1,10 +1,20 @@
+import os
+import sys
+
 import requests
 import json
 
-workflow_id = 'claudeDualCodeAuditor01'
-url = f'http://localhost:5678/api/v1/workflows/{workflow_id}'
+# המפתח והכתובת נקראים ממשתני סביבה. אין להטמיע מפתח בקוד — הקוד הזה ציבורי.
+API_KEY = os.environ.get('N8N_API_KEY')
+BASE_URL = os.environ.get('N8N_BASE_URL', 'http://localhost:5678')
+
+if not API_KEY:
+    sys.exit('N8N_API_KEY is not set. See .env.example.')
+
+workflow_id = os.environ.get('N8N_WORKFLOW_ID', 'dualCodeAuditor01')
+url = f'{BASE_URL}/api/v1/workflows/{workflow_id}'
 headers = {
-    'X-N8N-API-KEY': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMWYwMWIxNy0wZTM0LTQ2ZGQtOTBiZi1hM2MyYjFhYzFhYmEiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiMjUzZWRkNDAtYWM3OS00ZGQ5LTgxMGYtNWNjOGJjN2I4NjBiIiwiaWF0IjoxNzgyODk5ODUxfQ.IXsYTYgMsXbonaKX7QhOE-KUHHcEZ7uPq8mcn6-jP7c'
+    'X-N8N-API-KEY': API_KEY
 }
 
 try:
