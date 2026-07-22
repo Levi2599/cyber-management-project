@@ -15,7 +15,7 @@ const vm = require('vm');
 const crypto = require('crypto');
 const assert = require('assert');
 
-const WF_PATH = path.join(__dirname, '..', '..', 'ready_for_upload', 'dual_code_auditor_wf_updated.json');
+const WF_PATH = path.join(__dirname, '..', '..', 'dual_code_auditor_wf_updated.json');
 const wf = JSON.parse(fs.readFileSync(WF_PATH, 'utf8'));
 
 function nodeCode(name) {

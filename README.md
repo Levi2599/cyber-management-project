@@ -77,15 +77,16 @@ provider credential — so no accuracy figures are claimed here.
 | `dual_code_auditor_wf_updated.json` | The workflow, importable into n8n |
 | `index.html` | Demo page |
 | `scripts/eval/` | Labelled dataset, evaluation harness, unit tests |
+| `scripts/n8n/` | Helper scripts for the n8n public API |
 | `scripts/` | Chart and report generators, server setup scripts |
-| `ready_for_upload/README.md` | Deployment guide and configuration notes |
+| `docs/DEPLOYMENT.md` | Deployment guide and configuration notes |
 
 ---
 
 ## Running it
 
 Full setup — server, environment variables, credentials and the GitHub webhook — is documented in
-[`ready_for_upload/README.md`](ready_for_upload/README.md).
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Configuration comes from environment variables; copy `.env.example` to `.env` and fill it in.
 No keys are committed to this repository.

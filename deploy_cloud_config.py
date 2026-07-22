@@ -14,7 +14,10 @@ import re
 import subprocess
 import sys
 
-TARGETS = ["index.html", os.path.join("ready_for_upload", "index.html")]
+# index.html הוא הקובץ שבמאגר. ready_for_upload/ הוא חבילת ההגשה המקומית והוא
+# אינו נמצא במעקב גיט — מעדכנים אותו אם הוא קיים, אך לא מוסיפים אותו ל-commit.
+TRACKED_TARGET = "index.html"
+LOCAL_TARGETS = [os.path.join("ready_for_upload", "index.html")]
 BASE_URL_RE = re.compile(r'(BASE_URL:\s*")(https?://[^"]+)(")')
 
 
@@ -66,14 +69,16 @@ def main():
         )
 
     print(f"מעדכן BASE_URL ל-{base_url}:")
-    changed = [p for p in TARGETS if update_file(p, base_url)]
+    tracked_changed = update_file(TRACKED_TARGET, base_url)
+    for p in LOCAL_TARGETS:
+        update_file(p, base_url)
 
-    if not changed:
-        print("\nלא היה מה לעדכן. לא בוצע commit.")
+    if not tracked_changed:
+        print("\nלא היה מה לעדכן במאגר. לא בוצע commit.")
         return
 
     print("\nמבצע commit ו-push...")
-    subprocess.run(["git", "add"] + changed, check=True)
+    subprocess.run(["git", "add", TRACKED_TARGET], check=True)
     res = subprocess.run(
         ["git", "commit", "-m", f"Point site at n8n endpoint {base_url}"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
