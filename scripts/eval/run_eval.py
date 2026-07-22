@@ -31,6 +31,25 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATASET_PATH = os.path.join(HERE, "dataset.json")
 RESULTS_PATH = os.path.join(HERE, "results.json")
+WORKFLOW_PATH = os.path.join(HERE, "..", "..", "dual_code_auditor_wf_updated.json")
+
+
+def primary_model() -> str:
+    """
+    קורא את שם המודל מתוך ה-workflow עצמו.
+
+    הערך הזה נכתב ל-results.json ומשם לדוח. אילו היה מוקלד ידנית, שינוי מודל
+    בוורקפלו היה משאיר בדוח שם מודל שגוי — כלומר דיווח על מדידה שלא נעשתה.
+    """
+    try:
+        with open(WORKFLOW_PATH, encoding="utf-8") as f:
+            wf = json.load(f)
+        for node in wf["nodes"]:
+            if node.get("type", "").endswith("lmChatGroq") and "Fallback" not in node["name"]:
+                return "Groq " + node["parameters"]["model"]
+    except (OSError, KeyError, ValueError):
+        pass
+    return "unknown"
 
 CVSS_RE = re.compile(r"CVSS:3\.1/(?:[A-Z]{1,2}:[A-Z]/?)+")
 NO_VULN_RE = re.compile(r"NO_VULNERABILITIES_FOUND", re.IGNORECASE)
@@ -171,7 +190,7 @@ def main():
     summary = {
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "base_url": args.base_url,
-        "model": "Groq llama-3.3-70b-versatile",
+        "model": primary_model(),
         "architecture": "Dual Agent (Red Team + Blue Team)",
         "total_cases": len(cases),
         "completed_cases": len(ok),
