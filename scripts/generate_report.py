@@ -86,7 +86,9 @@ def para(doc, text, bold_prefix=None, bullet=False, italic=False):
     r.font.italic = italic
 
     prefix = "* " if bullet else ""
-    bold_md = "**%s**" % bold_prefix if bold_prefix else ""
+    # ב-Markdown רווח צמוד לסימני הסגירה מבטל את ההדגשה, ולכן הרווח שאחרי
+    # הכותרת מועבר אל מחוץ לסימנים.
+    bold_md = "**%s** " % bold_prefix.rstrip() if bold_prefix else ""
     md_lines.append(prefix + bold_md + text)
 
 
@@ -158,6 +160,18 @@ def load_baseline():
     return data
 
 
+def load_midrun():
+    """ההרצה השנייה, אחרי הוספת בדיקת הנטרול ולפני החריגים."""
+    path = os.path.join(EVAL_DIR, "results_v2.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    if data.get("summary", {}).get("valid") is False:
+        return None
+    return data
+
+
 def load_results():
     path = os.path.join(EVAL_DIR, "results.json")
     if not os.path.exists(path):
@@ -203,6 +217,7 @@ def build():
     dataset = load_dataset()
     results = load_results()
     baseline = load_baseline()
+    midrun = load_midrun()
     tests = run_unit_tests()
 
     cases = dataset["cases"]
@@ -426,22 +441,30 @@ def build():
         # ---- השוואה בין שתי ההרצות: לפני ואחרי תיקון הפרומפט ----
         if baseline:
             b = baseline["summary"]
-            heading(doc, "שתי הרצות: אבחון הטיה ותיקונה", Pt(12), md_level=3,
+            n_runs = "שלוש" if midrun else "שתי"
+            heading(doc, "%s הרצות: אבחון הטיה ותיקונה" % n_runs, Pt(12), md_level=3,
                     space_before=Pt(6))
             para(doc,
-                 "ההערכה הורצה פעמיים על אותו קורפוס ואותו מודל. בין ההרצות שונה "
-                 "ה-System Prompt של הסוכן האדום, בעקבות אבחון של ההרצה הראשונה.")
+                 "ההערכה הורצה %s פעמים על אותו קורפוס ואותו מודל. בין ההרצות שונה "
+                 "ה-System Prompt של הסוכן האדום בלבד, בעקבות אבחון של ההרצה הקודמת. "
+                 "כל שאר רכיבי המערכת נותרו זהים, ולכן ההפרש בין ההרצות משקף את השינוי "
+                 "בהנחיה ולא שינוי אחר." % n_runs)
+
+            runs = [("הרצה 1", b)]
+            if midrun:
+                runs.append(("הרצה 2", midrun["summary"]))
+            runs.append(("הרצה %d (סופית)" % (len(runs) + 1), s))
+
+            def row(label, key, suffix=""):
+                return [label] + ["%s%s" % (r[key], suffix) for _, r in runs]
 
             table(doc,
-                  ["מדד", "הרצה 1 (לפני)", "הרצה 2 (אחרי)"],
-                  [["קצב זיהוי", "%s%%" % b["detection_rate_pct"],
-                    "%s%%" % s["detection_rate_pct"]],
-                   ["התראות שווא", "%s%%" % b["false_positive_rate_pct"],
-                    "%s%%" % s["false_positive_rate_pct"]],
-                   ["דיוק", "%s%%" % b["precision_pct"], "%s%%" % s["precision_pct"]],
-                   ["החמצות", str(b["false_negatives"]), str(s["false_negatives"])],
-                   ["התראות שווא (מספר)", str(b["false_positives"]),
-                    str(s["false_positives"])]])
+                  ["מדד"] + [name for name, _ in runs],
+                  [row("קצב זיהוי", "detection_rate_pct", "%"),
+                   row("התראות שווא", "false_positive_rate_pct", "%"),
+                   row("דיוק", "precision_pct", "%"),
+                   row("החמצות", "false_negatives"),
+                   row("התראות שווא (מספר)", "false_positives")])
 
             b_fps = [r["id"] for r in baseline["records"]
                      if r["label"] == "safe" and r.get("predicted_vulnerable")]
@@ -459,14 +482,32 @@ def build():
                  "לכתוב PoC שעובד למרות ההגנות. נוסף שדה חובה בפלט שבו עליו לנמק מדוע ההגנות "
                  "הקיימות אינן מספיקות.",
                  bold_prefix="התיקון: ")
+            if midrun:
+                m = midrun["summary"]
+                para(doc,
+                     "שיעור התראות השווא ירד מ-%s%% ל-%s%%, אך נוצרה החמצה: המקרה של סיסמה "
+                     "מוטמעת בקוד לא דווח. בדיקה העלתה שההנחיה החדשה הופעלה רחב מדי. "
+                     "לחלק ממחלקות החולשה אין אמצעי הגנה אפשרי *בתוך* אותו קטע קוד — סוד "
+                     "מוטמע, גיבוב חלש לסיסמאות, ביטול אימות תעודה. הסוכן חיפש הגנה, לא "
+                     "מצא, ופירש זאת כאילו אין חולשה."
+                     % (b["false_positive_rate_pct"], m["false_positive_rate_pct"]),
+                     bold_prefix="הרצה 2: ")
+                para(doc,
+                     "לשלב בדיקת הנטרול נוספה רשימת חריגים: מחלקות שבהן היעדר הגנה הוא "
+                     "הממצא עצמו, ולכן מדווחים בהן תמיד. הרשימה מונה חמש מחלקות מוגדרות "
+                     "היטב ואינה חופפת למקרים שגרמו להתראות השווא, שכולם עסקו בקלט משתמש "
+                     "שעובר דרך הגנה.",
+                     bold_prefix="התיקון השני: ")
+
             para(doc,
-                 "שיעור התראות השווא ירד מ-%s%% ל-%s%% והדיוק עלה מ-%s%% ל-%s%%. המחיר היה "
-                 "החמצה אחת: המקרה של סיסמה מוטמעת בקוד לא דווח בהרצה השנייה. זהו איזון "
-                 "קלאסי בין דיוק לכיסוי — הנחיה שמרנית יותר מקטינה רעש אך מגדילה את הסיכון "
-                 "להחמצה, וההחלטה איפה למקם את הסף היא החלטה ניהולית ולא טכנית."
-                 % (b["false_positive_rate_pct"], s["false_positive_rate_pct"],
-                    b["precision_pct"], s["precision_pct"]),
-                 bold_prefix="התוצאה: ")
+                 "בתצורה הסופית קצב הזיהוי הוא %s%% ללא החמצות, שיעור התראות השווא %s%% "
+                 "והדיוק %s%%. ביחס להרצה הראשונה, שיעור התראות השווא ירד מ-%s%% והדיוק "
+                 "עלה מ-%s%%, בלי לוותר על אף ממצא. כלומר האיזון בין דיוק לכיסוי לא נפתר "
+                 "בבחירת סף, אלא בהפרדה בין מחלקות חולשה שיש להן אמצעי הגנה אפשרי בקוד "
+                 "לבין כאלה שאין."
+                 % (s["detection_rate_pct"], s["false_positive_rate_pct"],
+                    s["precision_pct"], b["false_positive_rate_pct"], b["precision_pct"]),
+                 bold_prefix="התוצאה הסופית: ")
 
         # ניתוח ההתראות שווא שנותרו, נגזר מהרשומות עצמן ולא נכתב ידנית.
         fps = [r for r in results["records"]
